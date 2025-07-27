@@ -31,7 +31,7 @@ class TestDownloadBlobsUtils:
         }
         filename_format_string = "{RKEY}_{TEXT}_{HANDLE}"
         result = download_blobs._make_base_filename(filename_options, filename_format_string)
-        assert result == f"{filename_options["RKEY"]}_{filename_options["TEXT"]}_{filename_options["HANDLE"]}"
+        assert result == f"{filename_options.get('RKEY')}_{filename_options.get('TEXT')}_{filename_options.get('HANDLE')}"
 
     def test_append_extension_mime_type(self):
         mime_type = "image/jpeg"
@@ -131,7 +131,7 @@ class TestDownloadBlobs:
             actual_data = f.read()
         
         assert actual_data == successful_get_blob["expected"], \
-            f"File contents don't match. Expected: {successful_get_blob['expected']}, Got: {actual_data}"
+            f"File contents don't match. Expected: {successful_get_blob.get('expected')}, Got: {actual_data}"
         
     def test_get_blob_exceed_retries(self, exceed_retries_get_blob, caplog, temp_dir):
         mock_did = "did:example:1234"

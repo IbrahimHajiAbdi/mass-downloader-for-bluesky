@@ -155,7 +155,7 @@ def _get_post_identifiers_with_retires(params: ParamsDict, client: Client, fetch
 )
 def _get_post_identifiers(params: ParamsDict, client: Client, fetch_amount: int, logger: logging.Logger):
     try:
-        logger.info(f"Attempting to fetch up to {fetch_amount} posts for DID: {params["repo"]}, feed_type: {params["collection"]}")
+        logger.info(f"Attempting to fetch up to {fetch_amount} posts for DID: {params.get('repo')}, feed_type: {params.get('collection')}")
         res = ComAtprotoRepoNamespace(client).list_records(params)  
         res = json.loads(res.model_dump_json())
         return res
