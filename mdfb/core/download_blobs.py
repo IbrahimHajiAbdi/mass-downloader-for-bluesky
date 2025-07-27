@@ -109,7 +109,7 @@ def _download_media(post: dict, filename: str, did: str, file_path: str, logger:
 def _download_json(file_path: str, filename: str, post: dict, logger: logging.Logger):
     with open(f"{os.path.join(file_path, filename)}.json", "wt") as json_file:
         json.dump(post["response"], json_file, indent=4)
-    logger.info(f"Sucessful wrote file: {filename + ".json"}")
+    logger.info(f"Sucessful wrote file: {filename + '.json'}")
 
 def _truncate_filename(filename: str, MAX_BYTE: int) -> str:
     """

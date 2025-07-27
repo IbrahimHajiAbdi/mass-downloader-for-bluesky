@@ -62,7 +62,8 @@ def fetch_post_details(uris: list[dict[str, str]]) -> list[dict[str, str]]:
             all_post_details.append(post_details)
         for uris in uri_chunk:
             if uris["poster_post_uri"] not in seen_uris:
-                logger.info(f"The post associated with this URI is missing/deleted: {uris["poster_post_uri"]}")
+
+                logger.info(f"The post associated with this URI is missing/deleted: {uris.get('poster_post_uri')}")
         time.sleep(DELAY)
     return all_post_details
 
