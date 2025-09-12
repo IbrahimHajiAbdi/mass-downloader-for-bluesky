@@ -73,7 +73,7 @@ def _get_post_identifiers_base(
     time.sleep(DELAY)
     return res
 
-def get_post_identifiers(did: str, feed_type: str, limit: int = 0, archive: bool = False, update: bool = False) -> list[dict]:
+def get_post_identifiers(did: str, feed_type: str, limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] = None, num_threads: int = DEFAULT_THREADS, restore: bool = False) -> list[dict]:
     """
     get_post_identifiers: Gets the given amount AT-URIs of the posts wanted from the desired account 
 
@@ -89,6 +89,8 @@ def get_post_identifiers(did: str, feed_type: str, limit: int = 0, archive: bool
     Returns:
         list[dict]: A list of dictionaries of the desired AT-URIs from the post and user, user did and feed type 
     """
+    if media_types:
+        return _get_post_identifiers_media_types(did, feed_type, media_types, limit, archive, update, num_threads, restore)
     cursor = ""
     con = connect_db()
     db_cursor = con.cursor()
@@ -105,7 +107,7 @@ def get_post_identifiers(did: str, feed_type: str, limit: int = 0, archive: bool
         cursor = res["cursor"]
     return post_uris
 
-def get_post_identifiers_media_types(did: str, feed_type: str, media_types: list[str], limit: int = 0, archive: bool = False, update: bool = False, num_threads: int = DEFAULT_THREADS, restore: bool = False) -> list[dict]:
+def _get_post_identifiers_media_types(did: str, feed_type: str, media_types: list[str], limit: int = 0, archive: bool = False, update: bool = False, num_threads: int = DEFAULT_THREADS, restore: bool = False) -> list[dict]:
     cursor = ""
     con = connect_db()
     db_cursor = con.cursor()
