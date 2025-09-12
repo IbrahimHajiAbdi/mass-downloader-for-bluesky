@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mdfb"
-version = "1.5.6"
+version = "1.5.7"
 description = "A CLI for downloading posts in bulk from Bluesky from a specified account"
 authors = ["Ibrahim Haji Abdi <ibrahim.hajiabdi09@gmail.com>"]
 readme = "README.md"
