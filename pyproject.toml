@@ -28,7 +28,7 @@ pytest = "^8.3.4"
 
 [project]
 name = "mdfb"
-version = "1.5.6"
+version = "1.5.7"
 authors = [
   { name="Ibrahim Haji Abdi", email="ibrahim.hajiabdi09@gmail.com" },
 ]
