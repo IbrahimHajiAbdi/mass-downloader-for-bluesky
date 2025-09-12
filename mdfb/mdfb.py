@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from mdfb.core.get_post_identifiers import get_post_identifiers, get_post_identifiers_media_types
+from mdfb.core.get_post_identifiers import get_post_identifiers 
 from mdfb.core.fetch_post_details import fetch_post_details
 from mdfb.core.download_blobs import download_blobs
 from mdfb.core.resolve_handle import resolve_handle
@@ -24,12 +24,12 @@ def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: 
             if wanted:
                 if update:
                     if check_user_has_posts(connect_db().cursor(), did, post_type):
-                        futures.append(executor.submit(get_post_identifiers, did, post_type, archive=archive, update=update))
+                        futures.append(executor.submit(get_post_identifiers, did, post_type, archive=archive, update=update, media_types=media_types, num_threads=num_threads))
                     else:
                         raise ValueError(f"This user has no post in database for feed_type: {post_type}, cannot update as you have not downloaded any post for feed_type: {post_type}.")
                 else:
                     if media_types:
-                        futures.append(executor.submit(get_post_identifiers_media_types, did, post_type, media_types, limit=limit, archive=archive, update=update, num_threads=num_threads, restore=restore))
+                        futures.append(executor.submit(get_post_identifiers, did, post_type, media_types, limit=limit, archive=archive, update=update, num_threads=num_threads, restore=restore))
                     elif restore:
                         futures.append(executor.submit(restore_posts, did, {post_type: wanted}))
                     else:
