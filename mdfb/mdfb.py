@@ -29,7 +29,7 @@ def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: 
                         raise ValueError(f"This user has no post in database for feed_type: {post_type}, cannot update as you have not downloaded any post for feed_type: {post_type}.")
                 else:
                     if media_types:
-                        futures.append(executor.submit(get_post_identifiers, did, post_type, media_types, limit=limit, archive=archive, update=update, num_threads=num_threads, restore=restore))
+                        futures.append(executor.submit(get_post_identifiers, did, post_type, media_types=media_types, limit=limit, archive=archive, update=update, num_threads=num_threads, restore=restore))
                     elif restore:
                         futures.append(executor.submit(restore_posts, did, {post_type: wanted}))
                     else:
