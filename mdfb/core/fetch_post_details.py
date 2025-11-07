@@ -39,16 +39,7 @@ def fetch_post_details(uris: list[dict[str, str]]) -> list[dict[str, str]]:
 
         for post in merged:
             seen_uris.add(post["uri"])
-            post_details = {
-                "rkey": _get_rkey(post["uri"]),
-                "text": post["record"].get("text", ""),
-                "response": post,
-                "user_did": post["user_did"],
-                "user_post_uri": post["user_post_uri"],
-                "poster_post_uri": post["poster_post_uri"],
-                "feed_type": post["feed_type"],
-                **_get_author_details(post["author"])
-            }
+            post_details = _extract_post_details(post)
         
             embed_media = post["record"].get("embed", None)
             if not embed_media:
@@ -146,3 +137,16 @@ def _merge_uri_chunk_to_records(uri_chunk: list[dict], records: dict) -> list[di
                 combined = {**uris, **post}
                 merged.append(combined)
     return merged
+
+def _extract_post_details(post: dict) -> dict:
+    post_details = {
+        "rkey": _get_rkey(post["uri"]),
+        "text": post["record"].get("text", ""),
+        "response": post,
+        "user_did": post["user_did"],
+        "user_post_uri": post["user_post_uri"],
+        "poster_post_uri": post["poster_post_uri"],
+        "feed_type": post["feed_type"],
+        **_get_author_details(post["author"])
+    }
+    return post_details

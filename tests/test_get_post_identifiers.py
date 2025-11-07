@@ -117,7 +117,8 @@ class TestGetPostIdentifiers:
             }  
 
     def test_get_post_identifiers_liked(self, get_post_api_response):
-        result = get_post_identifiers.get_post_identifiers("did:example:1234", "like", 2)
+        fetcher = get_post_identifiers.PostIdentifierFetcher("did:example:1234", "like")
+        result = fetcher.fetch(limit=2)
         assert result == get_post_api_response["expected"]
         get_post_api_response["mock_api_response"].assert_called_once_with({'collection': 'app.bsky.feed.like', 'repo': 'did:example:1234', 'limit': 2, 'cursor': ''})
 
@@ -129,17 +130,20 @@ class TestGetPostIdentifiers:
         mock_response.model_dump_json.return_value = json.dumps(mock_json_response)
         with patch("atproto_client.namespaces.sync_ns.ComAtprotoRepoNamespace.list_records") as mock_api_response:
             mock_api_response.return_value = mock_response
-            result = get_post_identifiers.get_post_identifiers("did:example:1234", "like", 2)
+            fetcher = get_post_identifiers.PostIdentifierFetcher("did:example:1234", "like")
+            result = fetcher.fetch(limit=2)
             assert result == []
 
     def test_get_post_identifiers_media_types_video(self, successful_response_media_types):
-        result = get_post_identifiers.get_post_identifiers_media_types("did:example:1234", "like", ["image"], limit=2)
+        fetcher = get_post_identifiers.PostIdentifierFetcher("did:example:1234", "like")
+        result = fetcher.fetch(limit=2, media_types=["image"])
 
         assert len(result) == 1
         assert result == successful_response_media_types["expected"]        
 
     def test_get_post_identifiers_media_types_non(self, non_response_media_types):
-        result = get_post_identifiers.get_post_identifiers_media_types("did:example:1234", "like", ["image"], limit=2)
+        fetcher = get_post_identifiers.PostIdentifierFetcher("did:example:1234", "like")
+        result = fetcher.fetch(limit=2, media_types=["image"])
 
         assert len(result) == 0
         assert result == non_response_media_types["expected"]        

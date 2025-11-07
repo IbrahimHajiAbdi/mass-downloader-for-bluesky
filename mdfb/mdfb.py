@@ -5,35 +5,35 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from mdfb.core.get_post_identifiers import get_post_identifiers 
+from mdfb.core.get_post_identifiers import PostIdentifierFetcher 
 from mdfb.core.fetch_post_details import fetch_post_details
-from mdfb.core.download_blobs import download_blobs
+from mdfb.core.download_blobs import DownloadBlobs
 from mdfb.core.resolve_handle import resolve_handle
-from mdfb.utils.validation import validate_database, validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads
+from mdfb.utils.validation import validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads
 from mdfb.utils.helpers import split_list, dedupe_posts
 from mdfb.utils.cli_helpers import account_or_did, get_did 
-from mdfb.utils.database import connect_db, delete_user, check_user_has_posts, restore_posts
+from mdfb.utils.database import Database
 from mdfb.utils.logging import setup_logging, setup_resource_monitoring
 from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS 
 
 def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] = None, num_threads: int = 1, restore: bool = False) -> list[dict[str, str]]:
     post_uris = []
+    db = Database()
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = []
         for post_type, wanted in post_types.items():
             if wanted:
+                fetcher = PostIdentifierFetcher(did, post_type, db, num_threads=num_threads, restore=restore)
                 if update:
-                    if check_user_has_posts(connect_db().cursor(), did, post_type):
-                        futures.append(executor.submit(get_post_identifiers, did, post_type, archive=archive, update=update, media_types=media_types, num_threads=num_threads))
+                    if db.check_user_has_posts(did, post_type):
+                        futures.append(executor.submit(fetcher.fetch, archive=archive, update=update, media_types=media_types))
                     else:
                         raise ValueError(f"This user has no post in database for feed_type: {post_type}, cannot update as you have not downloaded any post for feed_type: {post_type}.")
                 else:
-                    if media_types:
-                        futures.append(executor.submit(get_post_identifiers, did, post_type, media_types=media_types, limit=limit, archive=archive, update=update, num_threads=num_threads, restore=restore))
-                    elif restore:
-                        futures.append(executor.submit(restore_posts, did, {post_type: wanted}))
+                    if restore and not media_types:
+                        futures.append(executor.submit(db.restore_posts, did, {post_type: wanted}))
                     else:
-                        futures.append(executor.submit(get_post_identifiers, did, post_type, limit=limit, archive=archive, update=update))
+                        futures.append(executor.submit(fetcher.fetch, limit=limit, archive=archive, update=update, media_types=media_types))
         for future in as_completed(futures):
             post_uris.extend(future.result())
     return dedupe_posts(post_uris)
@@ -60,16 +60,17 @@ def process_posts(posts: list, num_threads: int) -> list[dict]:
             post_details.extend(future.result())
     return post_details
 
-def download_posts(post_links: list[dict], num_of_posts: int, num_threads: int, filename_format_string: str, directory: str, include: str = None):
+def download_posts(post_links: list[dict], num_of_posts: int, num_threads: int, filename_format_string: str, directory: str, db: Database, include: str = None):
     logger = logging.getLogger(__name__)
+    downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
     with tqdm(total=num_of_posts, desc="Downloading files") as progress_bar:
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = []
             for batch_post_link in post_links:
                 if not filename_format_string:
-                    futures.append(executor.submit(download_blobs, batch_post_link, directory, progress_bar, include=include))
+                    futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
                 else:
-                    futures.append(executor.submit(download_blobs, batch_post_link, directory, progress_bar, filename_format_string, include=include))
+                    futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
             for future in as_completed(futures):
                 try:
                     future.result()
@@ -78,20 +79,19 @@ def download_posts(post_links: list[dict], num_of_posts: int, num_threads: int, 
                     logger.error(f"Error in thread: {e}", exc_info=True)
                     
 def handle_db(args: Namespace, parser: ArgumentParser):
-    validate_database()
     if getattr(args, "delete_user", False):
+        db = Database()
         did = resolve_handle(args.delete_user)
-        delete_user(did)
+        db.delete_user(did)
         return 
 
 def handle_download(args: Namespace, parser: ArgumentParser):
     did = get_did(args)
     directory = validate_directory(args.directory, parser)
-    filename_format_string = validate_format(args.format) if args.format else ""
     setup_logging(directory)
+    filename_format_string = validate_format(args.format) if args.format else ""
     if args.resource:
         setup_resource_monitoring(directory)
-    validate_database()
 
     num_threads = validate_threads(args.threads) if args.threads else DEFAULT_THREADS
     
@@ -124,7 +124,7 @@ def handle_download(args: Namespace, parser: ArgumentParser):
     num_of_posts = len(post_details)
     post_links = split_list(post_details, num_threads)
 
-    download_posts(post_links, num_of_posts, num_threads, filename_format_string, directory, args.include)
+    download_posts(post_links, num_of_posts, num_threads, filename_format_string, directory, Database(), args.include)
 
 def main():
     parser = ArgumentParser()

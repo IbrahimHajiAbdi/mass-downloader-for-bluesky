@@ -3,9 +3,8 @@ import os
 import re
 import string
 import argparse
-import platformdirs
 from mdfb.utils.constants import MAX_THREADS, VALID_FILENAME_OPTIONS
-from mdfb.utils.database import create_db, check_user_exists
+from mdfb.utils.database import Database
 
 def validate_directory(directory: str, parser: argparse.ArgumentParser) -> str:
     if not directory:
@@ -46,9 +45,10 @@ def validate_format(filename_format_string: str) -> str:
     return filename_format_string
 
 def validate_no_posts(posts: list, account: str, post_types: list, update: bool, did: str, restore: str):
+    db = Database()
     if restore:
         if did:
-            if not check_user_exists(did):
+            if not db.check_user_exists(did):
                 raise ValueError(f"The account: {account} does not exist in the database.")
         elif not posts:
             raise ValueError(f"There are no posts associated with account: {account}, for post_type(s): {post_types}, in the database.")
@@ -57,15 +57,15 @@ def validate_no_posts(posts: list, account: str, post_types: list, update: bool,
     elif not posts:    
         raise ValueError(f"There are no posts associated with account: {account}, for post_type(s): {post_types}")
 
-def validate_database():
-    path = platformdirs.user_data_path(appname="mdfb")
-    if not os.path.isdir(path):
-        path = platformdirs.user_data_dir(appname="mdfb", ensure_exists=True)
-        logging.info("Creating database as the mdfb directory does not exist...")
-        create_db(path)
-    elif os.path.isdir(path) and not os.path.isfile(os.path.join(platformdirs.user_data_path(appname="mdfb"), "mdfb.db")): 
-        logging.info("Creating database as the mdfb directory does exist, but there is no database...")
-        create_db(path)
+# def validate_database():
+#     path = platformdirs.user_data_path(appname="mdfb")
+#     if not os.path.isdir(path):
+#         path = platformdirs.user_data_dir(appname="mdfb", ensure_exists=True)
+#         logging.info("Creating database as the mdfb directory does not exist...")
+#         create_db(path)
+#     elif os.path.isdir(path) and not os.path.isfile(os.path.join(platformdirs.user_data_path(appname="mdfb"), "mdfb.db")): 
+#         logging.info("Creating database as the mdfb directory does exist, but there is no database...")
+#         create_db(path)
 
 def validate_download(args: argparse.Namespace, parser: argparse.ArgumentParser):
     if args.restore:
