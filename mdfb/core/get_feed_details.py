@@ -55,7 +55,7 @@ class FetchFeedDetails():
                 self.logger.info(f"Media types detected {media_types}, filtered posts from {fetch_amount} to {len(processed_posts)} valid posts")
 
             cursor = data.cursor
-            limit -= len(processed_posts) # Should the same amount as fetch_amount if media_types != True else return the valid posts
+            limit -= len(processed_posts) # Should the same amount as fetch_amount if media_types != True else return valid posts retrieved
 
             res.extend(processed_posts)
 
