@@ -49,8 +49,6 @@ class FetchFeedDetails():
             processed_posts = self._process_batch_posts(posts)
             res.extend(processed_posts)
 
-            print(json.dumps(processed_posts[0]))
-
             time.sleep(DELAY)
         return res
 
