@@ -20,6 +20,7 @@ platformdirs = "^4.3.7"
 h11 = "^0.16.0"
 httpcore = "^1.0.9"
 psutil = "^7.0.0"
+pyyaml = "^6.0.3"
 
 [tool.poetry.group.dev.dependencies]
 requests-mock = "^1.12.1"

@@ -1,5 +1,6 @@
 import logging
 import traceback
+import getpass
 
 from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
@@ -9,11 +10,12 @@ from mdfb.core.get_post_identifiers import PostIdentifierFetcher
 from mdfb.core.fetch_post_details import fetch_post_details
 from mdfb.core.download_blobs import DownloadBlobs
 from mdfb.core.resolve_handle import resolve_handle
-from mdfb.utils.validation import validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads
+from mdfb.utils.validation import validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads, validate_feed
 from mdfb.utils.helpers import split_list, dedupe_posts
 from mdfb.utils.cli_helpers import account_or_did, get_did 
 from mdfb.utils.database import Database
 from mdfb.utils.logging import setup_logging, setup_resource_monitoring
+from mdfb.utils.login import Login
 from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS 
 
 def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] = None, num_threads: int = 1, restore: bool = False) -> list[dict[str, str]]:
@@ -78,6 +80,14 @@ def download_posts(post_links: list[dict], num_of_posts: int, num_threads: int, 
                     print(f"Error in thread: {e}")
                     logger.error(f"Error in thread: {e}", exc_info=True)
                     
+def handle_login():
+    handle = input("Enter handle: ")
+    app_password = getpass.getpass("Enter app password: ")
+
+    login = Login(handle, app_password)
+
+    login.login()
+
 def handle_db(args: Namespace, parser: ArgumentParser):
     if getattr(args, "delete_user", False):
         db = Database()
@@ -86,6 +96,7 @@ def handle_db(args: Namespace, parser: ArgumentParser):
         return 
 
 def handle_download(args: Namespace, parser: ArgumentParser):
+    validate_feed(args, parser)
     did = get_did(args)
     directory = validate_directory(args.directory, parser)
     setup_logging(directory)
@@ -150,12 +161,16 @@ def main():
     download_parser.add_argument("directory", action="store", help="Directory for where all downloaded post will be stored")
     download_parser.add_argument("--media-types", choices=["image", "video", "text"], nargs="+", help="Only download posts that contain this type of media")    
     download_parser.add_argument("--include", "-i", nargs=1, choices=["json", "media"], help="Whether to include the json of the post, or media attached to the post")
+    download_parser.add_argument("--feed", action="store", help="Feed URL")
 
     group_archive_limit = download_parser.add_mutually_exclusive_group(required=True)
     group_archive_limit.add_argument("--limit", "-l", action="store", help="The number of posts to be downloaded") 
     group_archive_limit.add_argument("--restore", nargs="?", const=True, help="Restore all posts in the database or for those for a specified handle")
     group_archive_limit.add_argument("--archive", action="store_true", help="To archive all posts of the specified types")
     group_archive_limit.add_argument("--update", "-u", action="store_true", help="Downloads latest posts that haven't been downloaded")
+
+    login_parser = subparsers.add_parser("login", help="Login", parents=[common_parser])
+
     args = parser.parse_args()
     try:
         if args.subcommand == "download":
@@ -163,6 +178,9 @@ def main():
             handle_download(args, parser)
         elif args.subcommand == "db":
             handle_db(args, parser)
+        elif args.subcommand == "login":
+            handle_login()
+
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

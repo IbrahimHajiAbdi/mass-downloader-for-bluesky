@@ -57,16 +57,6 @@ def validate_no_posts(posts: list, account: str, post_types: list, update: bool,
     elif not posts:    
         raise ValueError(f"There are no posts associated with account: {account}, for post_type(s): {post_types}")
 
-# def validate_database():
-#     path = platformdirs.user_data_path(appname="mdfb")
-#     if not os.path.isdir(path):
-#         path = platformdirs.user_data_dir(appname="mdfb", ensure_exists=True)
-#         logging.info("Creating database as the mdfb directory does not exist...")
-#         create_db(path)
-#     elif os.path.isdir(path) and not os.path.isfile(os.path.join(platformdirs.user_data_path(appname="mdfb"), "mdfb.db")): 
-#         logging.info("Creating database as the mdfb directory does exist, but there is no database...")
-#         create_db(path)
-
 def validate_download(args: argparse.Namespace, parser: argparse.ArgumentParser):
     if args.restore:
         if args.did or args.handle:
@@ -81,3 +71,7 @@ def validate_download(args: argparse.Namespace, parser: argparse.ArgumentParser)
 def _validate_post_types(args: argparse.Namespace, parser: argparse.ArgumentParser):
     if not any([args.like, args.post, args.repost]):
         parser.error("At least one flag (--like, --post, --repost) must be set.")
+
+def validate_feed(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    if hasattr(args, 'feed') and args.feed and (args.restore or args.archive or args.update):
+        parser.error("--feed cannot be used with --restore, --archive, or --update")
