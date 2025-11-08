@@ -10,6 +10,7 @@ from atproto import Client
 
 from mdfb.core.resolve_handle import resolve_handle
 from mdfb.core.fetch_post_details import FetchPostDetails
+from mdfb.core.get_post_identifiers import PostIdentifierFetcher
 from mdfb.utils.constants import DELAY
 
 class FetchFeedDetails():
@@ -27,8 +28,10 @@ class FetchFeedDetails():
         self.feed_url = feed_url
         self._validate_feed_url()
     
-    def fetch(self, limit: int) -> list[dict]:
+    def fetch(self, limit: int, media_types: list[str] = None) -> list[dict]:
         feed_uri = self._resolve_feed()
+        self.logger.debug(f"Sucessfully resolved feed URL: {self.feed_url} to {feed_uri}")
+
         cursor = ""
         res = []
 
@@ -40,13 +43,20 @@ class FetchFeedDetails():
                 'limit': fetch_amount,
                 'cursor': cursor
             })
-
-            cursor = data.cursor
-            limit -= fetch_amount
+            
+            self.logger.info(f"Successfully retrieved {fetch_amount} posts from feed: {self.feed_url}, URI: {feed_uri}")
 
             posts = json.loads(data.model_dump_json())
 
             processed_posts = self._process_batch_posts(posts)
+
+            if media_types:
+                processed_posts = PostIdentifierFetcher._filter_media_types(processed_posts, media_types)
+                self.logger.info(f"Media types detected {media_types}, filtered posts from {fetch_amount} to {len(processed_posts)} valid posts")
+
+            cursor = data.cursor
+            limit -= len(processed_posts) # Should the same amount as fetch_amount if media_types != True else return the valid posts
+
             res.extend(processed_posts)
 
             time.sleep(DELAY)
@@ -58,6 +68,7 @@ class FetchFeedDetails():
         for post in posts["feed"]:
             processed_post = FetchPostDetails._process_post(post["post"], self.seen_uris, self.logger)
             processed.append(processed_post)
+        self.logger.info(f"Successfully processed {len(processed)} posts")
         return processed
 
 
@@ -82,6 +93,7 @@ class FetchFeedDetails():
             raise ValueError(
                 "Invalid feed URL format. Expected: https://bsky.app/profile/<handle>/feed/<feed_name>"
             )
+        self.logger.debug(f"Valid feed URL given: {self.feed_url}")
 
     def _extract_handle(self) -> str:
         """Extracts just the handle."""
@@ -105,11 +117,13 @@ class FetchFeedDetails():
             print(msg)
             raise
 
+        self.logger.debug("Config yaml found")
+
     def _fetch_app_password(self) -> str:
         file_path = platformdirs.user_config_path(appname="mdfb")
         file = os.path.join(file_path, "mdfb.yaml")
         config = yaml.safe_load(open(file))
-        self.logger.debug(f"Successfully loaded config yaml [{file}]")
+        self.logger.debug(f"Successfully loaded config yaml {file}")
         return config["app_password"]
     
     def _login(self):

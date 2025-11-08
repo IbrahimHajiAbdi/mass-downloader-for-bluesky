@@ -89,12 +89,14 @@ def handle_feed(args: Namespace, parser: ArgumentParser):
     filename_format_string = validate_format(args.format) if args.format else ""
     num_threads = validate_threads(args.threads) if args.threads else DEFAULT_THREADS
 
+    print("Fetching feed details...")
+
     fetchFeed = FetchFeedDetails(args.handle, args.url)
-    posts = fetchFeed.fetch(limit)
+    posts = fetchFeed.fetch(limit, args.media_types)
 
     post_link_batches = split_list(posts, num_threads)
 
-    download_posts(post_link_batches, len(posts), num_threads, filename_format_string, directory)
+    download_posts(post_link_batches, len(posts), num_threads, filename_format_string, directory, include=args.include)
 
 def handle_login():
     handle = input("Enter handle: ")
@@ -189,6 +191,8 @@ def main():
     feed_parser.add_argument("--limit", "-l", action="store", help="The number of posts to be downloaded", required=True) 
     feed_parser.add_argument("--url", action="store", help="The URL for the feed", required=True) 
     feed_parser.add_argument("directory", action="store", help="Directory for where all downloaded post will be stored")
+    feed_parser.add_argument("--media-types", choices=["image", "video", "text"], nargs="+", help="Only download posts that contain this type of media")    
+    feed_parser.add_argument("--include", "-i", nargs=1, choices=["json", "media"], help="Whether to include the json of the post, or media attached to the post")
 
     args = parser.parse_args()
     try:

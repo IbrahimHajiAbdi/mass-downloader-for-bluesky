@@ -126,7 +126,7 @@ class PostIdentifierFetcher:
 
             post_details = self._fetch_details_parallel(post_uris, media_types)
 
-            res.extend(self._filter_media_types(post_details, media_types))
+            res.extend(PostIdentifier._filter_media_types(post_details, media_types))
 
             if self.restore:
                 break
@@ -149,8 +149,9 @@ class PostIdentifierFetcher:
                 post_details.extend(future.result())
 
         return post_details
-        
-    def _filter_media_types(self, post_details: list[dict], media_types: list[str]) -> list[dict]:
+
+    @staticmethod    
+    def _filter_media_types(post_details: list[dict], media_types: list[str]) -> list[dict]:
         filtered_posts = []
         for post in post_details:
                 if "media_type" in post:
