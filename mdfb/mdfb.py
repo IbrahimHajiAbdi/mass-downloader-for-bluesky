@@ -7,15 +7,16 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mdfb.core.get_post_identifiers import PostIdentifierFetcher 
-from mdfb.core.fetch_post_details import fetch_post_details
+from mdfb.core.fetch_post_details import FetchPostDetails
 from mdfb.core.download_blobs import DownloadBlobs
 from mdfb.core.resolve_handle import resolve_handle
-from mdfb.utils.validation import validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads, validate_feed
+from mdfb.utils.validation import validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads
 from mdfb.utils.helpers import split_list, dedupe_posts
 from mdfb.utils.cli_helpers import account_or_did, get_did 
 from mdfb.utils.database import Database
 from mdfb.utils.logging import setup_logging, setup_resource_monitoring
 from mdfb.utils.login import Login
+from mdfb.core.get_feed_details import FetchFeedDetails
 from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS 
 
 def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] = None, num_threads: int = 1, restore: bool = False) -> list[dict[str, str]]:
@@ -53,22 +54,23 @@ def process_posts(posts: list, num_threads: int) -> list[dict]:
     """
     posts = split_list(posts, num_threads)
     post_details = []
+    fetchPost = FetchPostDetails()
     
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = []
         for post_batch in posts:
-            futures.append(executor.submit(fetch_post_details, post_batch))
+            futures.append(executor.submit(fetchPost.fetch_post_details, post_batch))
         for future in as_completed(futures):
             post_details.extend(future.result())
     return post_details
 
-def download_posts(post_links: list[dict], num_of_posts: int, num_threads: int, filename_format_string: str, directory: str, db: Database, include: str = None):
+def download_posts(post_link_batches: list[dict], num_of_posts: int, num_threads: int, filename_format_string: str, directory: str, include: str = None):
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
     with tqdm(total=num_of_posts, desc="Downloading files") as progress_bar:
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = []
-            for batch_post_link in post_links:
+            for batch_post_link in post_link_batches:
                 if not filename_format_string:
                     futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
                 else:
@@ -80,6 +82,20 @@ def download_posts(post_links: list[dict], num_of_posts: int, num_threads: int, 
                     print(f"Error in thread: {e}")
                     logger.error(f"Error in thread: {e}", exc_info=True)
                     
+def handle_feed(args: Namespace, parser: ArgumentParser):
+    directory = validate_directory(args.directory, parser)
+    limit = validate_limit(args.limit)
+    setup_logging(directory)
+    filename_format_string = validate_format(args.format) if args.format else ""
+    num_threads = validate_threads(args.threads) if args.threads else DEFAULT_THREADS
+
+    fetchFeed = FetchFeedDetails(args.handle, args.url)
+    posts = fetchFeed.fetch(limit)
+
+    post_link_batches = split_list(posts, num_threads)
+
+    download_posts(post_link_batches, len(posts), num_threads, filename_format_string, directory)
+
 def handle_login():
     handle = input("Enter handle: ")
     app_password = getpass.getpass("Enter app password: ")
@@ -96,7 +112,6 @@ def handle_db(args: Namespace, parser: ArgumentParser):
         return 
 
 def handle_download(args: Namespace, parser: ArgumentParser):
-    validate_feed(args, parser)
     did = get_did(args)
     directory = validate_directory(args.directory, parser)
     setup_logging(directory)
@@ -135,7 +150,7 @@ def handle_download(args: Namespace, parser: ArgumentParser):
     num_of_posts = len(post_details)
     post_links = split_list(post_details, num_threads)
 
-    download_posts(post_links, num_of_posts, num_threads, filename_format_string, directory, Database(), args.include)
+    download_posts(post_links, num_of_posts, num_threads, filename_format_string, directory, args.include)
 
 def main():
     parser = ArgumentParser()
@@ -144,9 +159,6 @@ def main():
 
     common_parser = ArgumentParser(add_help=False)
 
-    common_parser.add_argument("--like", action="store_true", help="To retreive liked posts")
-    common_parser.add_argument("--post", action="store_true", help="To retreive posts")
-    common_parser.add_argument("--repost", action="store_true", help="To retreive reposts")
     common_parser.add_argument("--threads", "-t", action="store", help=f"Number of threads, maximum of {MAX_THREADS} threads")
     common_parser.add_argument("--format", "-f", action="store", help="Format string for filename e.g '{RKEY}_{DID}'. Valid keywords are: [RKEY, HANDLE, TEXT, DISPLAY_NAME, DID]")
     common_parser.add_argument("--did", "-d", action="store", help="The DID associated with the account")
@@ -161,7 +173,9 @@ def main():
     download_parser.add_argument("directory", action="store", help="Directory for where all downloaded post will be stored")
     download_parser.add_argument("--media-types", choices=["image", "video", "text"], nargs="+", help="Only download posts that contain this type of media")    
     download_parser.add_argument("--include", "-i", nargs=1, choices=["json", "media"], help="Whether to include the json of the post, or media attached to the post")
-    download_parser.add_argument("--feed", action="store", help="Feed URL")
+    download_parser.add_argument("--like", action="store_true", help="To retrieve liked posts")
+    download_parser.add_argument("--post", action="store_true", help="To retrieve posts")
+    download_parser.add_argument("--repost", action="store_true", help="To retrieve reposts")
 
     group_archive_limit = download_parser.add_mutually_exclusive_group(required=True)
     group_archive_limit.add_argument("--limit", "-l", action="store", help="The number of posts to be downloaded") 
@@ -170,6 +184,11 @@ def main():
     group_archive_limit.add_argument("--update", "-u", action="store_true", help="Downloads latest posts that haven't been downloaded")
 
     login_parser = subparsers.add_parser("login", help="Login", parents=[common_parser])
+
+    feed_parser = subparsers.add_parser("feed", help="Download posts from specified feed", parents=[common_parser])
+    feed_parser.add_argument("--limit", "-l", action="store", help="The number of posts to be downloaded", required=True) 
+    feed_parser.add_argument("--url", action="store", help="The URL for the feed", required=True) 
+    feed_parser.add_argument("directory", action="store", help="Directory for where all downloaded post will be stored")
 
     args = parser.parse_args()
     try:
@@ -180,6 +199,8 @@ def main():
             handle_db(args, parser)
         elif args.subcommand == "login":
             handle_login()
+        elif args.subcommand == "feed":
+            handle_feed(args, parser)
 
     except Exception as e:
         print(f"Error: {e}")

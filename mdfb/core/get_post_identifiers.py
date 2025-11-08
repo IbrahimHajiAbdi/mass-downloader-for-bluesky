@@ -16,7 +16,7 @@ from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 from mdfb.utils.constants import DELAY, EXP_WAIT_MAX, EXP_WAIT_MIN, EXP_WAIT_MULTIPLIER, RETRIES, DEFAULT_THREADS
 from mdfb.utils.helpers import split_list
 from mdfb.utils.database import Database
-from mdfb.core.fetch_post_details import fetch_post_details
+from mdfb.core.fetch_post_details import FetchPostDetails
 
 @dataclass
 class PostIdentifier:
@@ -139,11 +139,12 @@ class PostIdentifierFetcher:
     def _fetch_details_parallel(self, post_uris: list[dict], media_types: list[str]) -> list[dict]:
         post_details = []
         post_batchs = split_list(post_uris, self.num_threads)
+        fetchPost = FetchPostDetails()
 
         with ThreadPoolExecutor(max_workers=self.num_threads) as executor:
             futures = []
             for post_batch in post_batchs:
-                futures.append(executor.submit(fetch_post_details, post_batch))
+                futures.append(executor.submit(fetchPost.fetch_post_details, post_batch))
             for future in as_completed(futures):
                 post_details.extend(future.result())
 

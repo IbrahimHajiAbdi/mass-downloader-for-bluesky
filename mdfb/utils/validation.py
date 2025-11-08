@@ -71,7 +71,3 @@ def validate_download(args: argparse.Namespace, parser: argparse.ArgumentParser)
 def _validate_post_types(args: argparse.Namespace, parser: argparse.ArgumentParser):
     if not any([args.like, args.post, args.repost]):
         parser.error("At least one flag (--like, --post, --repost) must be set.")
-
-def validate_feed(args: argparse.Namespace, parser: argparse.ArgumentParser):
-    if hasattr(args, 'feed') and args.feed and (args.restore or args.archive or args.update):
-        parser.error("--feed cannot be used with --restore, --archive, or --update")

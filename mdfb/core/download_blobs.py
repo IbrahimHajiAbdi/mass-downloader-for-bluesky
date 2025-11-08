@@ -2,18 +2,21 @@ import json
 import os
 import re
 import time
+import encodings
+import logging
 
 from atproto_client.namespaces.sync_ns import ComAtprotoSyncNamespace
 from atproto_client.models.com.atproto.repo.list_records import ParamsDict
 from atproto import Client
+
 from pathvalidate import sanitize_filename
-import encodings
-import logging
+from tqdm import tqdm
+from tenacity import retry, stop_after_attempt, wait_exponential
+from typing import Optional
+
 from mdfb.utils.constants import DELAY, RETRIES, EXP_WAIT_MAX, EXP_WAIT_MIN, EXP_WAIT_MULTIPLIER, VALID_FILENAME_OPTIONS
 from mdfb.utils.database import Database
-from tqdm import tqdm
 
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 class DownloadBlobs():
     def __init__(self, logger: logging.Logger, file_path: str, db: Database, filename_format_string: str, include: str = None):
@@ -49,7 +52,10 @@ class DownloadBlobs():
             else:
                 self._download_media(post, filename, did)
                 self._download_json(filename, post)  
-            sucessful_downloads.extend(self._successful_download(post, progress_bar))
+            
+            rows = self._successful_download(post, progress_bar)
+            if rows:
+                sucessful_downloads.extend(rows)
         self.db.insert_post(sucessful_downloads)
         self.db.connection.commit()
 
@@ -134,9 +140,16 @@ class DownloadBlobs():
                 return filename[:i]
         return filename
 
-    def _successful_download(self, post: dict, progress_bar: tqdm) -> list[tuple]:
+    def _successful_download(self, post: dict, progress_bar: tqdm) -> Optional[list[tuple]]:
         res = []
-        for i in range(len(post["feed_type"])):
-            res.append((post["user_did"], post["user_post_uri"][i], post["feed_type"][i], post["poster_post_uri"]))
+        required_keys = ["feed_type", "user_post_uri", "user_did", "poster_post_uri"]
+        if all(key in post for key in required_keys):
+            for i in range(len(post["feed_type"])):
+                res.append((
+                    post["user_did"], 
+                    post["user_post_uri"][i], 
+                    post["feed_type"][i], 
+                    post["poster_post_uri"]
+                ))
         progress_bar.update(1)
         return res
