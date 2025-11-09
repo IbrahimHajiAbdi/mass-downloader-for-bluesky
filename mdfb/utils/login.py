@@ -41,10 +41,10 @@ class Login():
         file = os.path.join(self.file_path, "mdfb.yaml")
 
         if not os.path.isdir(self.file_path):
-            self.logger.debug(f"mdfb config directory does not exist [{self.file_path}], creating...")
+            self.logger.info(f"mdfb config directory does not exist [{self.file_path}], creating...")
             platformdirs.user_config_path(appname="mdfb", ensure_exists=True)
         if os.path.isdir(self.file_path) and not os.path.isfile(file):
-            self.logger.debug(f"mdfb config yaml does not exist [{file}], creating...")
+            self.logger.info(f"mdfb config yaml does not exist [{file}], creating...")
             open(file, "a").close()
     
     def _overwrite(self) -> bool:
@@ -55,12 +55,12 @@ class Login():
 
     def _setup_logger(self):
         logger = logging.getLogger(__name__)
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.INFO)
 
         logger.propagate = False
         
         handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.DEBUG)
+        handler.setLevel(logging.INFO)
         
         formatter = logging.Formatter(
             fmt='[%(asctime)s] %(message)s',

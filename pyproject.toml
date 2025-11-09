@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mdfb"
-version = "1.6.0"
+version = "1.6.1"
 description = "A CLI for downloading posts in bulk from Bluesky from a specified account"
 authors = ["Ibrahim Haji Abdi <ibrahim.hajiabdi09@gmail.com>"]
 readme = "README.md"
@@ -29,7 +29,7 @@ pytest = "^8.3.4"
 
 [project]
 name = "mdfb"
-version = "1.6.0"
+version = "1.6.1"
 authors = [
   { name="Ibrahim Haji Abdi", email="ibrahim.hajiabdi09@gmail.com" },
 ]

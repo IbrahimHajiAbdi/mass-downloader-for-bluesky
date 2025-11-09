@@ -38,7 +38,7 @@ class Database():
             db_file_path = os.path.join(self.db_path, "mdfb.db")
             self._local.connection = sqlite3.connect(db_file_path)
             thread_name = threading.current_thread().name
-            self.logger.debug(f"Created database connection for thread: {thread_name}")
+            self.logger.info(f"Created database connection for thread: {thread_name}")
         return self._local.connection
 
     @property

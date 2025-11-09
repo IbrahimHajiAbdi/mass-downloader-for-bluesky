@@ -30,7 +30,7 @@ class FetchFeedDetails():
     
     def fetch(self, limit: int, media_types: list[str] = None) -> list[dict]:
         feed_uri = self._resolve_feed()
-        self.logger.debug(f"Sucessfully resolved feed URL: {self.feed_url} to {feed_uri}")
+        self.logger.info(f"Sucessfully resolved feed URL: {self.feed_url} to {feed_uri}")
 
         cursor = ""
         res = []
@@ -93,7 +93,7 @@ class FetchFeedDetails():
             raise ValueError(
                 "Invalid feed URL format. Expected: https://bsky.app/profile/<handle>/feed/<feed_name>"
             )
-        self.logger.debug(f"Valid feed URL given: {self.feed_url}")
+        self.logger.info(f"Valid feed URL given: {self.feed_url}")
 
     def _extract_handle(self) -> str:
         """Extracts just the handle."""
@@ -116,13 +116,13 @@ class FetchFeedDetails():
             self.logger.error(msg)
             raise ValueError(msg)
 
-        self.logger.debug("Config yaml found")
+        self.logger.info("Config yaml found")
 
     def _fetch_app_password(self) -> str:
         file_path = platformdirs.user_config_path(appname="mdfb")
         file = os.path.join(file_path, "mdfb.yaml")
         config = yaml.safe_load(open(file))
-        self.logger.debug(f"Successfully loaded config yaml {file}")
+        self.logger.info(f"Successfully loaded config yaml {file}")
 
         if self.handle not in config:
             msg = f"There is no entry for handle: {self.handle} in the config yaml, need to use `mdfb login` to add an entry."
