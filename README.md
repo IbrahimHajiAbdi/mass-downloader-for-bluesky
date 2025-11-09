@@ -90,8 +90,27 @@ The database is stored in: (Linux) `~/.local/share/mdfb/`, (Windows) `C:\\Users\
 mdfb db --delete_user bsky.app
 ``` 
 
+### Feed
+When using the ``feed`` subcommand ,there are a few quirks. One of them being that since it is a generator there is not guaranteed order that the posts will be returned. This has the implication of doing the same command will likely produce different sets of downloaded content. This is up the person who owns the feed and how they decide it is generated.
+
+Furthermore, you need to login using the ``login`` subcommand, this requires you to generate a app password for the account you want to authenticate as. The subcommand ``login`` is only required when using the ``feed`` subcommand. The app password will be valid as long as the password for the account does not change or is revoked by the user. The subcommand ``feed`` will use the app password provided until changed.
+
+There can be multiple accounts in the config yaml with their own app password.
+
+You can generate an app password [here](https://bsky.app/settings/app-passwords).
+
+The config yaml is stored in: (Linux) `~/.config/mdfb/`, (Windows) `C:\\Users\\$USER\\AppData\\Local\\mdfb` and (macOS) `/Users/$USER/Library/Application Support/mdfb`.
+
 ### Note
-The maximum number of threads is currently 3, that can be changed in the ``mdfb/utils/constants.py`` file. Furthermore, there are more constants that can be changed in that file, such as delay between each request and the number of retires before marking that post as a failure and continuing.
+**IMPORTANT**: When using the ``feed`` subcommand, **None of the posts downloaded will be added to the database**. Meaning that the ``update`` flag cannot be used and if the same posts pops up on someone elses feed, it will be downloaded.
+
+#### Example
+```bash
+mdfb feed --handle bsky.app --url 'https://bsky.app/profile/bsky.app/feed/whats-hot' --limit 100 media/ -t 3 
+```
+
+### Note
+The maximum number of threads is currently 3, that can be changed in the ``mdfb/utils/constants.py`` file. Furthermore, there are more constants that can be changed in that file, such as delay between each request and the number of retries before marking that post as a failure and continuing.
 
 ## Subcommands and arguments
 - ``download`` 
@@ -126,6 +145,23 @@ The maximum number of threads is currently 3, that can be changed in the ``mdfb/
 - ``db``
   - ``--delete_user``
     - Deletes all posts associated with the given user from the database. Have to pass the **handle** of the user. 
+- ``login``
+  - This is only a subcommand and is needed to use ``fetch`` subcommand, needed to add the app password which can be found [here](https://bsky.app/settings/app-passwords)
+- ``feed``
+  - ``--url``
+    - The URL of the feed, e.g. https://bsky.app/profile/skyfeed.xyz/feed/mutuals. **Required**.
+  - ``--handle``
+    - Handle of the user to login in as. **Required**.
+  - ``--limit, -l``
+    - Number of posts to download. **Required**.
+  - ``--media-types``
+    - Only download posts that contain this specified type of media. Valid keywords are: **image, video and text**.
+  - ``--include, -i``
+    - Whether to include **only** json information or media from the post.
+  - ``directory``
+    - Positional argument, where all the downloaded files are to be located. **Required**.
+
+  
 - ``generic commands``
   - ``--resource, -r``
     - Logs resource usage for memory and cpu every 5 seconds. 
@@ -146,3 +182,9 @@ Furthermore, if you want to filter by text and image or media and then use `--in
 mdfb download --handle bsky.app --update --like --threads 3 --media-types image text -i media ./media/`
 ```
 This would just download images only.
+
+When using ``feed``, another example of a valid command is:
+```bash
+mdfb feed --handle bsky.app --url 'https://bsky.app/profile/bsky.app/feed/whats-hot' --limit 5 media/ -t 3 --media-types video --include media
+```
+This would download the first 5 posts that contain a video and only download the media, not the accompanying metadata json

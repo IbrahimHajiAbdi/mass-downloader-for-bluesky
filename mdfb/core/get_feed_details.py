@@ -114,8 +114,7 @@ class FetchFeedDetails():
         if not os.path.isfile(file):
             msg = f"There is no config yaml at: {file}. Need to login using `mdfb login`"
             self.logger.error(msg)
-            print(msg)
-            raise
+            raise ValueError(msg)
 
         self.logger.debug("Config yaml found")
 
@@ -124,11 +123,17 @@ class FetchFeedDetails():
         file = os.path.join(file_path, "mdfb.yaml")
         config = yaml.safe_load(open(file))
         self.logger.debug(f"Successfully loaded config yaml {file}")
-        return config["app_password"]
+
+        if self.handle not in config:
+            msg = f"There is no entry for handle: {self.handle} in the config yaml, need to use `mdfb login` to add an entry."
+            self.logger.error(msg)
+            raise ValueError(msg)
+        return config[self.handle]["app_password"]
     
     def _login(self):
         try:
             self.client.login(self.handle, self._fetch_app_password())
-        except:
-            self.logger.error("There is an error logging in. App password may be expired or deleted. Please log in again via `mdfb login`")
-            raise
+        except Exception:
+            msg = "There is an error logging in. App password may be expired or deleted. Please log in again via `mdfb login`"
+            self.logger.error(msg)
+            raise ValueError(msg)
