@@ -10,7 +10,7 @@ def setup_logging(directory: str):
     logging.basicConfig(
         filename=os.path.join(directory, log_name), 
         encoding='utf-8', 
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='[%(asctime)s] %(message)s', 
         datefmt='%m/%d/%Y %I:%M:%S %p',
     )

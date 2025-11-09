@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mdfb"
-version = "1.5.8"
+version = "1.6.0"
 description = "A CLI for downloading posts in bulk from Bluesky from a specified account"
 authors = ["Ibrahim Haji Abdi <ibrahim.hajiabdi09@gmail.com>"]
 readme = "README.md"
@@ -20,6 +20,7 @@ platformdirs = "^4.3.7"
 h11 = "^0.16.0"
 httpcore = "^1.0.9"
 psutil = "^7.0.0"
+pyyaml = "^6.0.3"
 
 [tool.poetry.group.dev.dependencies]
 requests-mock = "^1.12.1"
@@ -28,7 +29,7 @@ pytest = "^8.3.4"
 
 [project]
 name = "mdfb"
-version = "1.5.8"
+version = "1.6.0"
 authors = [
   { name="Ibrahim Haji Abdi", email="ibrahim.hajiabdi09@gmail.com" },
 ]
