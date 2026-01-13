@@ -71,10 +71,7 @@ def download_posts(post_link_batches: list[dict], num_of_posts: int, num_threads
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             futures = []
             for batch_post_link in post_link_batches:
-                if not filename_format_string:
-                    futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
-                else:
-                    futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
+                futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
             for future in as_completed(futures):
                 try:
                     future.result()

@@ -47,9 +47,9 @@ class FetchPostDetails:
                 post_details = FetchPostDetails._process_post(post, self.seen_uris, self.logger)
                 all_post_details.append(post_details)
 
-            for uris in uri_chunk:
-                if uris["poster_post_uri"] not in self.seen_uris:
-                    self.logger.info(f"The post associated with this URI is missing/deleted: {uris.get('poster_post_uri')}")
+            for uri in uri_chunk:
+                if uri["poster_post_uri"] not in self.seen_uris:
+                    self.logger.info(f"The post associated with this URI is missing/deleted: {uri.get('poster_post_uri')}")
             time.sleep(DELAY)
         return all_post_details
 
