@@ -126,16 +126,16 @@ class PostIdentifierFetcher:
 
             post_details = self._fetch_details_parallel(post_uris, media_types)
 
-            res.extend(PostIdentifier._filter_media_types(post_details, media_types))
+            res.extend(PostIdentifierFetcher._filter_media_types(post_details, media_types))
 
             if self.restore:
                 break
 
-            limit = identifiers.limit      
+            limit = identifiers.limit
             cursor = identifiers.cursor
 
         return res
-        
+
     def _fetch_details_parallel(self, post_uris: list[dict], media_types: list[str]) -> list[dict]:
         post_details = []
         post_batchs = split_list(post_uris, self.num_threads)
@@ -210,7 +210,3 @@ class PostIdentifierFetcher:
                 exc_info=True
             )
             raise
-    
-    def __del__(self):
-        if hasattr(self, 'db_connection'):
-            self.db_connection.close()
