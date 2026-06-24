@@ -28,14 +28,14 @@ def validate_did(did: str) -> str:
 def validate_threads(threads: str) -> int:
     if not threads.isdigit():
         raise ValueError("Please enter an integer")
-    threads = int(threads)
-    if threads > MAX_THREADS:
-        logging.info(f"Entered {threads} threads, but the maximum is {MAX_THREADS}. Setting to {MAX_THREADS} threads")
-        print(f"Entered {threads} threads, but the maximum is {MAX_THREADS}. Setting to {MAX_THREADS} threads.")
-        threads = MAX_THREADS
-    if threads < 1:
+    count = int(threads)
+    if count > MAX_THREADS:
+        logging.info(f"Entered {count} threads, but the maximum is {MAX_THREADS}. Setting to {MAX_THREADS} threads")
+        print(f"Entered {count} threads, but the maximum is {MAX_THREADS}. Setting to {MAX_THREADS} threads.")
+        count = MAX_THREADS
+    if count < 1:
         raise ValueError("Please set threads to 1 or more")
-    return threads
+    return count
 
 def validate_format(filename_format_string: str) -> str:
     formatter = string.Formatter()

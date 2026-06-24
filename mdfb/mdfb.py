@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from mdfb.core.get_post_identifiers import PostIdentifierFetcher 
 from mdfb.core.fetch_post_details import FetchPostDetails
 from mdfb.core.download_blobs import DownloadBlobs
+from mdfb.core.models import EnrichedPost
 from mdfb.core.resolve_handle import resolve_handle
 from mdfb.utils.validation import validate_directory, validate_download, validate_format, validate_limit, validate_no_posts, validate_threads
 from mdfb.utils.helpers import split_list, dedupe_posts
@@ -41,7 +42,7 @@ def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: 
             post_uris.extend(future.result())
     return dedupe_posts(post_uris)
 
-def process_posts(posts: list, num_threads: int) -> list[dict]:
+def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
     """
     process_posts: processes the given list of post URIs to get the post details required for downloading, can be threaded 
 
@@ -64,7 +65,7 @@ def process_posts(posts: list, num_threads: int) -> list[dict]:
             post_details.extend(future.result())
     return post_details
 
-def download_posts(post_link_batches: list[dict], num_of_posts: int, num_threads: int, filename_format_string: str, directory: str, include: str = None):
+def download_posts(post_link_batches: list[list[EnrichedPost]], num_of_posts: int, num_threads: int, filename_format_string: str, directory: str, include: str = None):
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
     with tqdm(total=num_of_posts, desc="Downloading files") as progress_bar:
