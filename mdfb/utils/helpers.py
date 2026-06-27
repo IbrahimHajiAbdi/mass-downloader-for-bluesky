@@ -56,4 +56,4 @@ def dedupe_posts(posts: list[dict]) -> list[dict]:
             res[poster_post_uri]["user_post_uri"].extend(post["user_post_uri"])
         else:
             res[poster_post_uri] = post
-    return [v for k, v in res.items()]
+    return [v for _, v in res.items()]
