@@ -5,7 +5,7 @@ import logging
 import threading
 
 class Database():
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger | None = None):
         self.db_path = platformdirs.user_data_dir(appname="mdfb")
         self._ensure_database_exists()
         self.logger = logger or logging.getLogger(__name__)

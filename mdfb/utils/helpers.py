@@ -1,3 +1,6 @@
+from mdfb.core.models import EnrichedPost
+from collections.abc import Iterator
+
 def split_list(input_list: list, split_by: int) -> list[list]:
     """
     split_list: splits the list into the given number of equal sized chunks, used for distributing data so that it can be used for threads
@@ -24,7 +27,7 @@ def split_list(input_list: list, split_by: int) -> list[list]:
         start = end
     return res
 
-def get_chunk(posts: list, chunk_size: int) -> list:
+def get_chunk(posts: list, chunk_size: int) -> Iterator[list]:
     """
     get_chunk: splits a list into smaller chunks of a specified size.
 

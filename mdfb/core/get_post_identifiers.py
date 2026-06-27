@@ -13,6 +13,7 @@ from atproto.exceptions import AtProtocolError
 
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
+from mdfb.core.models import EnrichedPost
 from mdfb.utils.constants import DELAY, EXP_WAIT_MAX, EXP_WAIT_MIN, EXP_WAIT_MULTIPLIER, RETRIES, DEFAULT_THREADS
 from mdfb.utils.helpers import split_list
 from mdfb.utils.database import Database
@@ -38,7 +39,7 @@ class PostIdentifierFetcher:
 
     BATCH_SIZE = 100
 
-    def __init__(self, did: str, feed_type: str, db: Database, logger: logging.Logger = None, num_threads: Optional[int] = DEFAULT_THREADS, restore: bool = False):
+    def __init__(self, did: str, feed_type: str, db: Database, logger: logging.Logger | None = None, num_threads: int = DEFAULT_THREADS, restore: bool = False):
         self.did = did
         self.num_threads = num_threads
         self.feed_type = feed_type
@@ -136,7 +137,7 @@ class PostIdentifierFetcher:
 
         return res
 
-    def _fetch_details_parallel(self, post_uris: list[dict], media_types: list[str]) -> list[dict]:
+    def _fetch_details_parallel(self, post_uris: list[dict], media_types: list[str]) -> list[EnrichedPost]:
         post_details = []
         post_batchs = split_list(post_uris, self.num_threads)
         fetchPost = FetchPostDetails()
@@ -151,12 +152,12 @@ class PostIdentifierFetcher:
         return post_details
 
     @staticmethod    
-    def _filter_media_types(post_details: list[dict], media_types: list[str]) -> list[dict]:
+    def _filter_media_types(post_details: list[EnrichedPost], media_types: list[str]) -> list[dict]:
         filtered_posts = []
         for post in post_details:
-                if "media_type" in post:
+                if post.media_type:
                     for media_type in media_types:
-                        if media_type in post["media_type"]:
+                        if media_type in post.media_type:
                             filtered_posts.append(post)
         return filtered_posts
    
