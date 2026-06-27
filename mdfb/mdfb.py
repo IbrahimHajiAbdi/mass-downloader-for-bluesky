@@ -40,7 +40,7 @@ def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: 
                         futures.append(executor.submit(fetcher.fetch, limit=limit, archive=archive, update=update, media_types=media_types))
         for future in as_completed(futures):
             post_uris.extend(future.result())
-    return dedupe_posts(post_uris)
+    return dedupe_posts(post_uris) if not media_types else post_uris
 
 def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
     """
