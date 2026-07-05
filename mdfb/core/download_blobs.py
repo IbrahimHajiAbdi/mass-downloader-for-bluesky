@@ -41,7 +41,7 @@ class DownloadBlobs():
             filename_options = {}
             for valid_filename_option in VALID_FILENAME_OPTIONS:
                 if valid_filename_option in self.filename_format_string:
-                    filename_options[valid_filename_option] = getattr(post, valid_filename_option.lower())
+                    filename_options[valid_filename_option] = getattr(post, valid_filename_option.lower(), "") or ""
             filename = self._make_base_filename(filename_options)
             if self.include:
                 if "json" in self.include:

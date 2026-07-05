@@ -7,7 +7,7 @@ class EnrichedPost(BaseModel):
     rkey: str 
     text: str 
     handle: str 
-    display_name: str 
+    display_name: str | None = None
     media_type: list[str] = []
     images_cid: list[str] = []
     video_cids: list[str] = []
