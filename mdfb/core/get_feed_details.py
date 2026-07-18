@@ -5,11 +5,10 @@ import time
 from atproto import Client
 from atproto_client.models.app.bsky.feed.get_feed import Response
 
-from mdfb.core.config_manager import ConfigManager
-from mdfb.core.get_post_identifiers import PostIdentifierFetcher
 from mdfb.core.models import EnrichedPost
 from mdfb.core.post_parser import PostParser
 from mdfb.core.resolve_handle import resolve_handle
+from mdfb.utils.config_manager import ConfigManager
 from mdfb.utils.constants import DELAY
 
 

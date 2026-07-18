@@ -195,7 +195,8 @@ class TestValidateDatabase:
 
     def test_validate_database(self, caplog, setup_test_db):
         with (
-            caplog.at_level(logging.INFO), patch.object(platformdirs, "user_data_path") as mock_user_data_path,
+            caplog.at_level(logging.INFO),
+            patch.object(platformdirs, "user_data_path") as mock_user_data_path,
             patch.object(platformdirs, "user_data_dir") as mock_user_data_dir,
         ):
             mock_user_data_path.return_value = setup_test_db

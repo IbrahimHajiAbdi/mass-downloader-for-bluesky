@@ -21,7 +21,6 @@ class ConfigManager:
             raise ValueError(msg)
         self.logger.info("Config yaml found")
 
-
     def get_authed_client(self) -> Client:
         try:
             client = Client()

@@ -82,5 +82,5 @@ def validate_download(args: argparse.Namespace, parser: argparse.ArgumentParser)
 
 
 def _validate_post_types(args: argparse.Namespace, parser: argparse.ArgumentParser):
-    if not any([args.like, args.post, args.repost]):
-        parser.error("At least one flag (--like, --post, --repost) must be set.")
+    if not any([args.like, args.post, args.repost, args.bookmark]):
+        parser.error("At least one flag (--like, --post, --repost) or --bookmark must be set.")

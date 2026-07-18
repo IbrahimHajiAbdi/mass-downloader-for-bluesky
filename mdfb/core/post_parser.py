@@ -33,7 +33,7 @@ class PostParser:
         | atproto_client.models.app.bsky.embed.gallery.Main
         | atproto_client.models.app.bsky.embed.record.Main
         | atproto_client.models.app.bsky.embed.record_with_media.Main
-        | None
+        | None,
     ) -> dict:
         media_links = {"media_type": [], "mime_type": ""}
 
@@ -95,10 +95,7 @@ class PostParser:
 
     @staticmethod
     def _create_post_identifier(feed_type: str, did: str, record: dict) -> dict:
-        if feed_type == "post":
-            uri = record["uri"]
-        else:
-            uri = record["value"]["subject"]["uri"]
+        uri = record["uri"] if feed_type == "post" else record["value"]["subject"]["uri"]
 
         uris = {
             "user_did": did,

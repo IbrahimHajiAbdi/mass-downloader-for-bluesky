@@ -8,14 +8,14 @@ from tqdm import tqdm
 
 from mdfb.core.download_blobs import DownloadBlobs
 from mdfb.core.fetch_post_details import FetchPostDetails
+from mdfb.core.get_bookmarks import BookmarkFetcher
 from mdfb.core.get_feed_details import FetchFeedDetails
 from mdfb.core.get_post_identifiers import PostIdentifierFetcher
 from mdfb.core.models import EnrichedPost
 from mdfb.core.resolve_handle import resolve_handle
-from mdfb.utils import config_manager
 from mdfb.utils.cli_helpers import account_or_did, get_did
 from mdfb.utils.config_manager import ConfigManager
-from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS
+from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS, FeedTypes
 from mdfb.utils.database import Database
 from mdfb.utils.helpers import dedupe_posts, split_list
 from mdfb.utils.logging import setup_logging, setup_resource_monitoring
@@ -33,39 +33,43 @@ def fetch_posts(
     did: str,
     post_types: dict[str, bool],
     limit: int = 0,
+    handle: str = "",
     archive: bool = False,
     update: bool = False,
-    media_types: list[str] = None,
-    num_threads: int = 1,
+    media_types: list[str] = [],
+    num_threads: int = DEFAULT_THREADS,
     restore: bool = False,
 ) -> list[dict[str, str]]:
     post_uris = []
     db = Database()
+    has_bookmarks = post_types.get(FeedTypes.BOOKMARK, False)
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = []
         for post_type, wanted in post_types.items():
-            if wanted:
+            if not wanted:
+                continue
+            if post_type == FeedTypes.BOOKMARK:
+                fetcher = BookmarkFetcher(handle, db)
+                fetch_call = fetcher.fetch_bookmarks
+            else:
                 fetcher = PostIdentifierFetcher(did, post_type, db, num_threads=num_threads, restore=restore)
-                if update:
-                    if db.check_user_has_posts(did, post_type):
-                        futures.append(
-                            executor.submit(fetcher.fetch, archive=archive, update=update, media_types=media_types)
-                        )
-                    else:
-                        raise ValueError(
-                            f"This user has no post in database for feed_type: {post_type}, cannot update as you have not downloaded any post for feed_type: {post_type}."
-                        )
-                elif restore and not media_types:
-                    futures.append(executor.submit(db.restore_posts, did, {post_type: wanted}))
+                fetch_call = fetcher.fetch
+            if update:
+                if db.check_user_has_posts(did, post_type):
+                    futures.append(executor.submit(fetch_call, archive=archive, update=update, media_types=media_types))
                 else:
-                    futures.append(
-                        executor.submit(
-                            fetcher.fetch, limit=limit, archive=archive, update=update, media_types=media_types
-                        )
+                    raise ValueError(
+                        f"This user has no post in database for feed_type: {post_type}, cannot update as you have not downloaded any post for feed_type: {post_type}."
                     )
+            elif restore and not media_types:
+                futures.append(executor.submit(db.restore_posts, did, {post_type: wanted}))
+            else:
+                futures.append(
+                    executor.submit(fetch_call, limit=limit, archive=archive, update=update, media_types=media_types)
+                )
         for future in as_completed(futures):
             post_uris.extend(future.result())
-    return dedupe_posts(post_uris) if not media_types else post_uris
+    return dedupe_posts(post_uris) if not (media_types or has_bookmarks) else post_uris
 
 
 def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
@@ -99,21 +103,23 @@ def download_posts(
     num_threads: int,
     filename_format_string: str,
     directory: str,
-    include: str = None,
+    include: str | None = None,
 ):
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
-    with tqdm(total=num_of_posts, desc="Downloading files") as progress_bar, \
-        ThreadPoolExecutor(max_workers=num_threads) as executor:
-            futures = []
-            for batch_post_link in post_link_batches:
-                futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    print(f"Error in thread: {e}")
-                    logger.error(f"Error in thread: {e}", exc_info=True)
+    with (
+        tqdm(total=num_of_posts, desc="Downloading files") as progress_bar,
+        ThreadPoolExecutor(max_workers=num_threads) as executor,
+    ):
+        futures = []
+        for batch_post_link in post_link_batches:
+            futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Error in thread: {e}")
+                logger.error(f"Error in thread: {e}", exc_info=True)
 
 
 def handle_feed(args: Namespace, parser: ArgumentParser):
@@ -158,27 +164,53 @@ def handle_download(args: Namespace, parser: ArgumentParser):
 
     num_threads = validate_threads(args.threads) if args.threads else DEFAULT_THREADS
 
-    post_types = {"like": args.like, "repost": args.repost, "post": args.post}
+    if args.bookmark and (args.like or args.repost or args.post):
+        parser.error("--bookmark cannot currently be combined with --like, --repost, or --post.")
+    if args.bookmark and not args.handle:
+        parser.error("--bookmark requires --handle (bookmarks require an authenticated session).")
+
+    post_types = {
+        FeedTypes.LIKE: args.like,
+        FeedTypes.REPOST: args.repost,
+        FeedTypes.POST: args.post,
+        FeedTypes.BOOKMARK: args.bookmark,
+    }
 
     print("Fetching post identifiers...")
     if args.restore:
         posts = fetch_posts(
-            did, post_types, archive=True, media_types=args.media_types, num_threads=num_threads, restore=True
+            did,
+            post_types,
+            archive=True,
+            media_types=args.media_types,
+            num_threads=num_threads,
+            restore=True,
+            handle=args.handle,
         )
     elif args.archive:
-        posts = fetch_posts(did, post_types, archive=True, media_types=args.media_types, num_threads=num_threads)
+        posts = fetch_posts(
+            did, post_types, archive=True, media_types=args.media_types, num_threads=num_threads, handle=args.handle
+        )
     elif args.update:
         posts = fetch_posts(
-            did, post_types, archive=True, update=True, media_types=args.media_types, num_threads=num_threads
+            did,
+            post_types,
+            archive=True,
+            update=True,
+            media_types=args.media_types,
+            num_threads=num_threads,
+            handle=args.handle,
         )
     else:
         limit = validate_limit(args.limit)
-        posts = fetch_posts(did, post_types, limit=limit, media_types=args.media_types, num_threads=num_threads)
+        posts = fetch_posts(
+            did, post_types, limit=limit, media_types=args.media_types, num_threads=num_threads, handle=args.handle
+        )
     wanted_post_types = [post_type for post_type, wanted in post_types.items() if wanted]
     account = account_or_did(args, did)
     validate_no_posts(posts, account, wanted_post_types, args.update, did, args.restore)
 
-    if args.media_types:
+    if args.media_types or args.bookmark:
         post_details = posts
     else:
         print("Getting post details...")
@@ -242,6 +274,7 @@ def main():
     download_parser.add_argument("--like", action="store_true", help="To retrieve liked posts")
     download_parser.add_argument("--post", action="store_true", help="To retrieve posts")
     download_parser.add_argument("--repost", action="store_true", help="To retrieve reposts")
+    download_parser.add_argument("--bookmark", action="store_true", help="To retrieve bookmarked posts")
 
     group_archive_limit = download_parser.add_mutually_exclusive_group(required=True)
     group_archive_limit.add_argument("--limit", "-l", action="store", help="The number of posts to be downloaded")

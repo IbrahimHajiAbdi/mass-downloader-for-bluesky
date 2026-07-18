@@ -87,7 +87,5 @@ class FetchPostDetails:
             uri = uris["poster_post_uri"]
             for post in records:
                 if uri == post.uri:
-                    # for k, v in uris.items():
-                    #     setattr(post, k, v)
                     merged.append((post, uris))
         return merged
