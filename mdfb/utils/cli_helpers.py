@@ -17,13 +17,13 @@ def is_did(did: str) -> bool:
         return False
     return True
 
-def account_or_did(args: argparse.ArgumentParser, did: str) -> str:
+def account_or_did(args: argparse.Namespace, did: str) -> str:
     if args.restore:
         return args.restore
     else:
         return args.handle if args.handle else did
 
-def get_did(args: argparse.ArgumentParser) -> str:
+def get_did(args: argparse.Namespace) -> str:
     if args.restore: 
         if args.restore is True:
             did = None

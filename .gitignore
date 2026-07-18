@@ -12,3 +12,4 @@ responses/
 dist/
 media/
 scripts/
+.claude

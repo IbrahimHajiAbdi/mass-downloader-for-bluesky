@@ -18,7 +18,7 @@ from mdfb.utils.database import Database
 from mdfb.utils.logging import setup_logging, setup_resource_monitoring
 from mdfb.utils.login import Login
 from mdfb.core.get_feed_details import FetchFeedDetails
-from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS 
+from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS
 
 def fetch_posts(did: str, post_types: dict[str, bool], limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] = None, num_threads: int = 1, restore: bool = False) -> list[dict[str, str]]:
     post_uris = []
