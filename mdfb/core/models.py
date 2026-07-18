@@ -1,12 +1,13 @@
-from pydantic import BaseModel
 from atproto_client.models.app.bsky.feed.defs import PostView
+from pydantic import BaseModel
+
 
 class EnrichedPost(BaseModel):
     response: PostView
-    did: str 
-    rkey: str 
-    text: str 
-    handle: str 
+    did: str
+    rkey: str
+    text: str
+    handle: str
     display_name: str | None = None
     media_type: list[str] = []
     images_cid: list[str] = []

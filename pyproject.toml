@@ -25,6 +25,8 @@ pyyaml = "^6.0.3"
 requests-mock = "^1.12.1"
 pytest-mock = "^3.14.0"
 pytest = "^8.3.4"
+ruff = "^0.15.22"
+pyright = "^1.1.411"
 
 [project]
 name = "mdfb"
@@ -44,6 +46,20 @@ classifiers = [
 [tool.poetry.urls]
 Repository = "https://github.com/IbrahimHajiAbdi/mass-downloader-for-bluesky.git"
 Issues = "https://github.com/IbrahimHajiAbdi/mass-downloader-for-bluesky/issues"
+
+[tool.pyright]
+include = ["mdfb"]
+exclude = [
+    "**/__pycache__",
+    "**/.venv",
+    "**/venv",
+    "**/node_modules",
+    "**/.git",
+]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
 
 [build-system]
 requires = ["poetry-core"]

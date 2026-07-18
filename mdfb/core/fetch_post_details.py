@@ -1,21 +1,20 @@
-import time
 import logging
+import time
 
-from atproto_client.namespaces.sync_ns import AppBskyFeedNamespace
-from atproto_client.models.app.bsky.feed.get_posts import ParamsDict
 from atproto import Client
 from atproto.exceptions import AtProtocolError
 from atproto_client.models.app.bsky.feed.defs import PostView
-
+from atproto_client.models.app.bsky.feed.get_posts import ParamsDict
+from atproto_client.namespaces.sync_ns import AppBskyFeedNamespace
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
-from mdfb.utils.helpers import get_chunk
-from mdfb.utils.constants import DELAY, EXP_WAIT_MAX, EXP_WAIT_MIN, EXP_WAIT_MULTIPLIER, RETRIES
-from mdfb.core.post_parser import PostParser
 from mdfb.core.models import EnrichedPost
+from mdfb.core.post_parser import PostParser
+from mdfb.utils.constants import DELAY, EXP_WAIT_MAX, EXP_WAIT_MIN, EXP_WAIT_MULTIPLIER, RETRIES
+from mdfb.utils.helpers import get_chunk
+
 
 class FetchPostDetails:
-
     BATCH_SIZE = 25
 
     def __init__(self, logger: logging.Logger | None = None):
@@ -28,13 +27,14 @@ class FetchPostDetails:
         fetch_post_details: Fetches post details from the given AT-URIs
 
         Args:
-            uris (list[dict]): A list of dictionaries of the desired AT-URIs from the post and user, user did and feed type 
+            uris (list[dict]): A list of dictionaries of the desired AT-URIs from the post and user, user did and feed type
 
         Returns:
             list[dict]: A list of dictionaries that contain post details
+
         """
         all_post_details = []
-        
+
         for uri_chunk in get_chunk(uris, self.BATCH_SIZE):
             self.logger.info(f"Fetching details from {len(uri_chunk)} URIs")
             res = self._get_post_details_with_retries(uri_chunk)
@@ -53,7 +53,9 @@ class FetchPostDetails:
 
             for uri in uri_chunk:
                 if uri["poster_post_uri"] not in self.seen_uris:
-                    self.logger.info(f"The post associated with this URI is missing/deleted: {uri.get('poster_post_uri')}")
+                    self.logger.info(
+                        f"The post associated with this URI is missing/deleted: {uri.get('poster_post_uri')}"
+                    )
             time.sleep(DELAY)
         return all_post_details
 
@@ -64,21 +66,21 @@ class FetchPostDetails:
             self.logger.error(f"Failure to fetch records from the URIs: {uri_chunk}", exc_info=True)
 
     @retry(
-        wait=wait_exponential(multiplier=EXP_WAIT_MULTIPLIER, min=EXP_WAIT_MIN, max=EXP_WAIT_MAX), 
-        stop=stop_after_attempt(RETRIES)
+        wait=wait_exponential(multiplier=EXP_WAIT_MULTIPLIER, min=EXP_WAIT_MIN, max=EXP_WAIT_MAX),
+        stop=stop_after_attempt(RETRIES),
     )
     def _get_post_details(self, uri_chunk: list[dict]):
         try:
             uris = [uris["poster_post_uri"] for uris in uri_chunk]
-            res = AppBskyFeedNamespace(self.client).get_posts(ParamsDict(
-                uris=uris
-            ))
+            res = AppBskyFeedNamespace(self.client).get_posts(ParamsDict(uris=uris))
             return res
         except (AtProtocolError, RetryError):
             self.logger.error(f"Error occurred fetching records from URIs: {uri_chunk}", exc_info=True)
             raise
-    
-    def _merge_uri_chunk_to_records(self, uri_chunk: list[dict], records: list[PostView]) -> list[tuple[PostView, dict]]:
+
+    def _merge_uri_chunk_to_records(
+        self, uri_chunk: list[dict], records: list[PostView]
+    ) -> list[tuple[PostView, dict]]:
         merged = []
 
         for uris in uri_chunk:

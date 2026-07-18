@@ -1,15 +1,20 @@
-import re
 import logging
+import re
 
+import atproto_client
+from atproto_client.models import (
+    AppBskyEmbedGallery,
+    AppBskyEmbedImages,
+    AppBskyEmbedRecordWithMedia,
+    AppBskyEmbedVideo,
+)
+from atproto_client.models.app.bsky.actor.defs import ProfileViewBasic
 from atproto_client.models.app.bsky.feed.defs import PostView
 
 from mdfb.core.models import EnrichedPost
-from atproto_client.models.app.bsky.actor.defs import ProfileViewBasic
-import atproto_client
-from atproto_client.models import AppBskyEmbedImages, AppBskyEmbedVideo, AppBskyEmbedGallery, AppBskyEmbedRecordWithMedia
+
 
 class PostParser:
-
     @staticmethod
     def parse_post(post: PostView, seen_uris: set, logger: logging.Logger) -> EnrichedPost:
         uri = post.uri
@@ -22,20 +27,18 @@ class PostParser:
 
     @staticmethod
     def _extract_media(
-        embed: atproto_client.models.app.bsky.embed.external.Main | 
-               atproto_client.models.app.bsky.embed.images.Main | 
-               atproto_client.models.app.bsky.embed.video.Main | 
-               atproto_client.models.app.bsky.embed.gallery.Main | 
-               atproto_client.models.app.bsky.embed.record.Main | 
-               atproto_client.models.app.bsky.embed.record_with_media.Main 
-               | None
-        ) -> dict:
+        embed: atproto_client.models.app.bsky.embed.external.Main
+        | atproto_client.models.app.bsky.embed.images.Main
+        | atproto_client.models.app.bsky.embed.video.Main
+        | atproto_client.models.app.bsky.embed.gallery.Main
+        | atproto_client.models.app.bsky.embed.record.Main
+        | atproto_client.models.app.bsky.embed.record_with_media.Main
+        | None
+    ) -> dict:
         media_links = {"media_type": [], "mime_type": ""}
 
         if isinstance(embed, AppBskyEmbedImages.Main):
-            media_links.setdefault("images_cid", []).extend(
-                str(image.image.cid) for image in embed.images
-            )
+            media_links.setdefault("images_cid", []).extend(str(image.image.cid) for image in embed.images)
             media_links["media_type"].extend(["image"] * len(embed.images))
             media_links["mime_type"] = embed.images[0].image.mime_type
         elif isinstance(embed, AppBskyEmbedVideo.Main):
@@ -43,9 +46,7 @@ class PostParser:
             media_links["media_type"].append("video")
             media_links["mime_type"] = embed.video.mime_type
         elif isinstance(embed, AppBskyEmbedGallery.Main):
-            media_links.setdefault("images_cid", []).extend(
-                str(image.image.cid) for image in embed.items
-            )
+            media_links.setdefault("images_cid", []).extend(str(image.image.cid) for image in embed.items)
             media_links["media_type"].extend(["image"] * len(embed.items))
             media_links["mime_type"] = embed.items[0].image.mime_type
         elif isinstance(embed, AppBskyEmbedRecordWithMedia.Main):
@@ -73,13 +74,10 @@ class PostParser:
             "rkey": PostParser._get_rkey(post.uri),
             "text": post.record.text,
             **PostParser._get_author_details(post.author),
-            **(PostParser._extract_media(post.record.embed) if post.record.embed else {"media_type": ["text"]})
+            **(PostParser._extract_media(post.record.embed) if post.record.embed else {"media_type": ["text"]}),
         }
 
-        enriched_post = EnrichedPost(
-            response=post,
-            **post_details
-        )
+        enriched_post = EnrichedPost(response=post, **post_details)
 
         # Optional only because the FetchFeedDetails class cannot get these values, and they are used in the database as
         # the columns. Thus, you cannot add any of the post retrieved from feed to the database
@@ -113,23 +111,23 @@ class PostParser:
     @staticmethod
     def _extract_handle(feed_url: str) -> str:
         """Extracts just the handle."""
-        pattern = r'https://bsky\.app/profile/([^/]+)/feed/[^/]+'
+        pattern = r"https://bsky\.app/profile/([^/]+)/feed/[^/]+"
         match = re.search(pattern, feed_url)
         return match.group(1)
 
     @staticmethod
     def _extract_feed_name(feed_url: str) -> str:
         """Extracts just the feed name."""
-        pattern = r'https://bsky\.app/profile/[^/]+/feed/([^/]+)'
+        pattern = r"https://bsky\.app/profile/[^/]+/feed/([^/]+)"
         match = re.search(pattern, feed_url)
         return match.group(1)
 
-    @staticmethod    
+    @staticmethod
     def _filter_media_types(post_details: list[EnrichedPost], media_types: list[str]) -> list[dict]:
         filtered_posts = []
         for post in post_details:
-                if post.media_type:
-                    for media_type in media_types:
-                        if media_type in post.media_type:
-                            filtered_posts.append(post)
+            if post.media_type:
+                for media_type in media_types:
+                    if media_type in post.media_type:
+                        filtered_posts.append(post)
         return filtered_posts

@@ -1,6 +1,7 @@
 import pytest
-from mdfb.core.resolve_handle import resolve_handle
 from atproto_identity.exceptions import DidNotFoundError
+
+from mdfb.core.resolve_handle import resolve_handle
 
 
 def test_resolve_handle(mocker):
@@ -9,6 +10,7 @@ def test_resolve_handle(mocker):
     mocker.patch("atproto_identity.handle.resolver.HandleResolver.ensure_resolve", return_value=mocked_did)
     result = resolve_handle(mocked_handle)
     assert result == mocked_did
+
 
 def test_resolve_handle_not_found(mocker):
     mocked_response = mocker.patch("atproto_identity.handle.resolver.HandleResolver.ensure_resolve")
