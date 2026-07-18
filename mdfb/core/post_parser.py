@@ -6,7 +6,7 @@ from atproto_client.models.app.bsky.feed.defs import PostView
 from mdfb.core.models import EnrichedPost
 from atproto_client.models.app.bsky.actor.defs import ProfileViewBasic
 import atproto_client
-from atproto_client import models
+from atproto_client.models import AppBskyEmbedImages, AppBskyEmbedVideo, AppBskyEmbedGallery, AppBskyEmbedRecordWithMedia
 
 class PostParser:
 
@@ -32,23 +32,23 @@ class PostParser:
         ) -> dict:
         media_links = {"media_type": [], "mime_type": ""}
 
-        if isinstance(embed, models.AppBskyEmbedImages.Main):
+        if isinstance(embed, AppBskyEmbedImages.Main):
             media_links.setdefault("images_cid", []).extend(
                 str(image.image.cid) for image in embed.images
             )
             media_links["media_type"].extend(["image"] * len(embed.images))
             media_links["mime_type"] = embed.images[0].image.mime_type
-        elif isinstance(embed, models.AppBskyEmbedVideo.Main):
+        elif isinstance(embed, AppBskyEmbedVideo.Main):
             media_links.setdefault("video_cids", []).append(str(embed.video.cid))
             media_links["media_type"].append("video")
             media_links["mime_type"] = embed.video.mime_type
-        elif isinstance(embed, models.AppBskyEmbedGallery.Main):
+        elif isinstance(embed, AppBskyEmbedGallery.Main):
             media_links.setdefault("images_cid", []).extend(
                 str(image.image.cid) for image in embed.items
             )
             media_links["media_type"].extend(["image"] * len(embed.items))
             media_links["mime_type"] = embed.items[0].image.mime_type
-        elif isinstance(embed, models.AppBskyEmbedRecordWithMedia.Main):
+        elif isinstance(embed, AppBskyEmbedRecordWithMedia.Main):
             media_links = PostParser._extract_media(embed.media)
         else:
             media_links["media_type"].append("text")
@@ -123,3 +123,13 @@ class PostParser:
         pattern = r'https://bsky\.app/profile/[^/]+/feed/([^/]+)'
         match = re.search(pattern, feed_url)
         return match.group(1)
+
+    @staticmethod    
+    def _filter_media_types(post_details: list[EnrichedPost], media_types: list[str]) -> list[dict]:
+        filtered_posts = []
+        for post in post_details:
+                if post.media_type:
+                    for media_type in media_types:
+                        if media_type in post.media_type:
+                            filtered_posts.append(post)
+        return filtered_posts

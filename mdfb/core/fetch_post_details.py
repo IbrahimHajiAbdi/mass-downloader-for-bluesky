@@ -42,9 +42,6 @@ class FetchPostDetails:
                 continue
             records = res.posts
 
-            # Convert default PostView into EnrichedPost for later enrichment
-            # records = [EnrichedPost(response=record) for record in records]
-
             merged = self._merge_uri_chunk_to_records(uri_chunk, records)
 
             for post, enriched_data in merged:
