@@ -89,12 +89,12 @@ class PostParser:
         return enriched_post
 
     @staticmethod
-    def _extract_cursor(uri: str) -> str:
+    def extract_cursor(uri: str) -> str:
         match = re.search(r"\w+$", uri)
         return match[0] if match else ""
 
     @staticmethod
-    def _create_post_identifier(feed_type: str, did: str, record: dict) -> dict:
+    def create_post_identifier(feed_type: str, did: str, record: dict) -> dict:
         uri = record["uri"] if feed_type == "post" else record["value"]["subject"]["uri"]
 
         uris = {
@@ -106,21 +106,21 @@ class PostParser:
         return uris
 
     @staticmethod
-    def _extract_handle(feed_url: str) -> str:
+    def extract_handle(feed_url: str) -> str:
         """Extracts just the handle."""
         pattern = r"https://bsky\.app/profile/([^/]+)/feed/[^/]+"
         match = re.search(pattern, feed_url)
         return match.group(1)
 
     @staticmethod
-    def _extract_feed_name(feed_url: str) -> str:
+    def extract_feed_name(feed_url: str) -> str:
         """Extracts just the feed name."""
         pattern = r"https://bsky\.app/profile/[^/]+/feed/([^/]+)"
         match = re.search(pattern, feed_url)
         return match.group(1)
 
     @staticmethod
-    def _filter_media_types(post_details: list[EnrichedPost], media_types: list[str]) -> list[dict]:
+    def filter_media_types(post_details: list[EnrichedPost], media_types: list[str]) -> list[EnrichedPost]:
         filtered_posts = []
         for post in post_details:
             if post.media_type:
@@ -128,3 +128,31 @@ class PostParser:
                     if media_type in post.media_type:
                         filtered_posts.append(post)
         return filtered_posts
+
+    @staticmethod
+    def parse_and_filter(
+        posts: list[PostView],
+        seen_uris: set,
+        logger: logging.Logger,
+        media_types: list[str] | None = None,
+    ) -> list[EnrichedPost]:
+        """
+        parse_and_filter: parses a batch of raw posts into EnrichedPost objects,
+        optionally keeping only those matching the given media_types.
+
+        Args:
+            posts (list[PostView]): raw posts to parse
+            seen_uris (set): set of seen URIs, passed through to parse_post
+            logger (logging.Logger): logger, passed through to parse_post
+            media_types (list[str] | None, optional): if given, only posts whose
+                media_type overlaps with this list are kept. Defaults to None,
+                in which case all parsed posts are kept.
+
+        Returns:
+            list[EnrichedPost]: parsed (and possibly filtered) posts
+
+        """
+        parsed = [PostParser.parse_post(post, seen_uris, logger) for post in posts]
+        if media_types:
+            return PostParser.filter_media_types(parsed, media_types)
+        return parsed

@@ -51,7 +51,7 @@ class MediaTypesFetcher:
 
             post_details = self._fetch_details_parallel(post_uris)
 
-            res.extend(PostParser._filter_media_types(post_details, media_types))
+            res.extend(PostParser.filter_media_types(post_details, media_types))
 
             if self.restore:
                 break

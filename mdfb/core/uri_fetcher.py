@@ -74,7 +74,7 @@ class URIFetcher:
             self.logger.info(f"No more records to fetch for DID: {self.did}, feed_type: {self.feed_type}")
             return None
 
-        cursor = PostParser._extract_cursor(records[-1]["uri"])
+        cursor = PostParser.extract_cursor(records[-1]["uri"])
 
         for record in records:
             if update and self.db.check_post_exists(self.did, record["uri"], self.feed_type):
@@ -82,7 +82,7 @@ class URIFetcher:
                     FetchResult(cursor=cursor, limit=remaining_amount, post_uris=post_uris) if not post_uris else None
                 )
 
-            post_uris.append(PostParser._create_post_identifier(self.feed_type, self.did, record))
+            post_uris.append(PostParser.create_post_identifier(self.feed_type, self.did, record))
 
         time.sleep(DELAY)
 

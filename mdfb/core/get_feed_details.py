@@ -22,8 +22,7 @@ class FetchFeedDetails:
         self.config_manager = ConfigManager(handle)
         self.seen_uris = set()
         self.config_manager.existance_check()
-        self.client = Client()
-        self._login()
+        self.client = ConfigManager(self.handle).get_authed_client()
         self.feed_url = feed_url
         self._validate_feed_url()
 
@@ -43,13 +42,9 @@ class FetchFeedDetails:
 
             posts = data
 
-            processed_posts = self._process_batch_posts(posts)
-
-            if media_types:
-                processed_posts = PostParser._filter_media_types(processed_posts, media_types)
-                self.logger.info(
-                    f"Media types detected {media_types}, filtered posts from {fetch_amount} to {len(processed_posts)} valid posts"
-                )
+            processed_posts = PostParser.parse_and_filter(
+                [p.post for p in posts.feed], self.seen_uris, self.logger, media_types
+            )
 
             cursor = data.cursor
             limit -= len(
@@ -71,9 +66,9 @@ class FetchFeedDetails:
         return processed
 
     def _resolve_feed(self) -> str:
-        handle = PostParser._extract_handle(self.feed_url)
+        handle = PostParser.extract_handle(self.feed_url)
         did = resolve_handle(handle)
-        feed_name = PostParser._extract_feed_name(self.feed_url)
+        feed_name = PostParser.extract_feed_name(self.feed_url)
 
         return self.FEED_URI_TEMPLATE.format_map({"DID": did, "FEED_NAME": feed_name})
 

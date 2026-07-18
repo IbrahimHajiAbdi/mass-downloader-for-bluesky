@@ -61,17 +61,13 @@ class BookmarkFetcher:
         bookmarks = self._get_bookmarks(limit, archive, update)
 
         for post in bookmarks:
-            enriched_data = self._create_post_identifier(post)
             post_details = PostParser.parse_post(post, self.seen_uris, self.logger)
-
-            for k, v in enriched_data.items():
+            for k, v in self._create_post_identifier(post).items():
                 setattr(post_details, k, v)
+            all_post_details.append(post_details)
 
-            if media_types:
-                all_post_details.extend(PostParser._filter_media_types([post_details], media_types))
-            else:
-                all_post_details.append(post_details)
-
+        if media_types:
+            return PostParser.filter_media_types(all_post_details, media_types)
         return all_post_details
 
     def _get_bookmarks(self, limit: int = 0, archive: bool = False, update: bool = False) -> list[PostView]:
