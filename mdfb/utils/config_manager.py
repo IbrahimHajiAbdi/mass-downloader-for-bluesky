@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
+from typing import TYPE_CHECKING
 
 import platformdirs
 import yaml
-from atproto import Client
+
+if TYPE_CHECKING:
+    from atproto import Client
 
 
 class ConfigManager:
@@ -22,6 +27,7 @@ class ConfigManager:
         self.logger.info("Config yaml found")
 
     def get_authed_client(self) -> Client:
+        from atproto import Client
         try:
             client = Client()
             client.login(self.handle, self._fetch_app_password())
