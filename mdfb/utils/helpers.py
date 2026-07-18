@@ -1,5 +1,5 @@
-from mdfb.core.models import EnrichedPost
 from collections.abc import Iterator
+
 
 def split_list(input_list: list, split_by: int) -> list[list]:
     """
@@ -11,6 +11,7 @@ def split_list(input_list: list, split_by: int) -> list[list]:
 
     Returns:
         list[list[str]]: a 2d array of list split into the desired number of chunks, given by `split_by`
+
     """
     if split_by < 1:
         raise ValueError("Please enter split_by to be greater than 0")
@@ -27,6 +28,7 @@ def split_list(input_list: list, split_by: int) -> list[list]:
         start = end
     return res
 
+
 def get_chunk(posts: list, chunk_size: int) -> Iterator[list]:
     """
     get_chunk: splits a list into smaller chunks of a specified size.
@@ -40,15 +42,17 @@ def get_chunk(posts: list, chunk_size: int) -> Iterator[list]:
 
     Raises:
         ValueError: If `chunk_size` is less than 1.
-    """   
+
+    """
     if chunk_size < 1:
         raise ValueError("Please enter a chunk size >= 1")
     for i in range(0, len(posts), chunk_size):
-        chunk = posts[i:i+chunk_size]
+        chunk = posts[i : i + chunk_size]
         yield chunk
 
+
 def dedupe_posts(posts: list[dict]) -> list[dict]:
-    res = {} # poster_post_uri : post
+    res = {}  # poster_post_uri : post
     for post in posts:
         poster_post_uri = post["poster_post_uri"]
         if poster_post_uri in res:

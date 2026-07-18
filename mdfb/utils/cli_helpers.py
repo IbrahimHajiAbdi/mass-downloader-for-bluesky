@@ -1,7 +1,9 @@
 import argparse
 import re
-from mdfb.utils.validation import validate_did
+
 from mdfb.core.resolve_handle import resolve_handle
+from mdfb.utils.validation import validate_did
+
 
 def is_did(did: str) -> bool:
     """
@@ -12,19 +14,21 @@ def is_did(did: str) -> bool:
 
     Returns:
         bool: Whether the did is valid
+
     """
     if not re.search(r"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$", did):
         return False
     return True
 
+
 def account_or_did(args: argparse.Namespace, did: str) -> str:
     if args.restore:
         return args.restore
-    else:
-        return args.handle if args.handle else did
+    return args.handle or did
+
 
 def get_did(args: argparse.Namespace) -> str:
-    if args.restore: 
+    if args.restore:
         if args.restore is True:
             did = None
         else:

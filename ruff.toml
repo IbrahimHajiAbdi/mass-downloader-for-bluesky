@@ -1,0 +1,43 @@
+line-length = 120
+target-version = "py313"
+
+[lint]
+select = [
+    "ALL", # include all the rules, including new ones
+]
+ignore = [
+    #### modules
+    "ANN", # flake8-annotations
+    "COM", # flake8-commas
+    "C90", # mccabe complexity
+    "DJ",  # django
+    "EXE", # flake8-executable
+    "T10", # debugger
+    "TID", # flake8-tidy-imports
+    #### specific rules
+    "D100",   # ignore missing docs
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "G004",
+    "D106",
+    "D107",
+    "D200",
+    "D205",
+    "D212",
+    "D400",
+    "D401",
+    "D415",
+    "E402",   # false positives for local imports
+    "E501",   # line too long
+    "TRY003", # external messages in exceptions are too verbose
+    "SIM103",
+    "TD002",
+    "TD003",
+    "FIX002", # too verbose descriptions of todos
+    "PTH113",
+    "PTH123",
+    "PTH118",
+]

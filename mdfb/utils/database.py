@@ -1,10 +1,12 @@
-import sqlite3
-import platformdirs
-import os
 import logging
+import os
+import sqlite3
 import threading
 
-class Database():
+import platformdirs
+
+
+class Database:
     def __init__(self, logger: logging.Logger | None = None):
         self.db_path = platformdirs.user_data_dir(appname="mdfb")
         self._ensure_database_exists()
@@ -15,9 +17,11 @@ class Database():
         if not os.path.isdir(self.db_path):
             path = platformdirs.user_data_dir(appname="mdfb", ensure_exists=True)
             logging.info(f"Creating database as the mdfb directory [{path}] does not exist...")
-        elif os.path.isdir(self.db_path) and not os.path.isfile(os.path.join(platformdirs.user_data_path(appname="mdfb"), "mdfb.db")):
+        elif os.path.isdir(self.db_path) and not os.path.isfile(
+            os.path.join(platformdirs.user_data_path(appname="mdfb"), "mdfb.db")
+        ):
             logging.info("Creating database as the mdfb directory does exist, but there is no database...")
-        
+
         con = sqlite3.connect(os.path.join(self.db_path, "mdfb.db"))
         cur = con.cursor()
         cur.execute("""
@@ -31,7 +35,7 @@ class Database():
         """)
         con.commit()
         con.close()
-    
+
     @property
     def connection(self) -> sqlite3.Connection:
         if not hasattr(self._local, "connection"):
@@ -46,22 +50,28 @@ class Database():
         return self.connection.cursor()
 
     def insert_post(self, rows: list[tuple]) -> bool:
-        res = self.cursor.executemany("""
+        res = self.cursor.executemany(
+            """
             INSERT OR IGNORE INTO downloaded_posts (user_did, user_post_uri, feed_type, poster_post_uri) 
             VALUES (?, ?, ?, ?)
-        """, rows)
-        
+        """,
+            rows,
+        )
+
         if res.rowcount > 0:
             return True
         return False
 
     def check_post_exists(self, user_did: str, user_post_uri: str, feed_type: str) -> bool:
-        res = self.cursor.execute("""
+        res = self.cursor.execute(
+            """
             SELECT * FROM downloaded_posts 
             WHERE user_did = ? 
             AND user_post_uri = ?
             AND feed_type = ?
-        """, (user_did, user_post_uri, feed_type))
+        """,
+            (user_did, user_post_uri, feed_type),
+        )
 
         row = res.fetchone()
         if row:
@@ -69,11 +79,14 @@ class Database():
         return False
 
     def check_user_has_posts(self, user_did: str, feed_type: str) -> bool:
-        res = self.cursor.execute("""
+        res = self.cursor.execute(
+            """
             SELECT * FROM downloaded_posts
             WHERE user_did = ?
             AND feed_type = ?
-        """, [user_did, feed_type])
+        """,
+            [user_did, feed_type],
+        )
 
         row = res.fetchone()
         if row:
@@ -82,10 +95,13 @@ class Database():
 
     def check_user_exists(self, did: str) -> bool:
         cur = self.cursor
-        res = cur.execute("""
+        res = cur.execute(
+            """
             SELECT * FROM downloaded_posts
             WHERE user_did = ?
-        """, (did,))
+        """,
+            (did,),
+        )
 
         row = res.fetchone()
         if row:
@@ -94,10 +110,13 @@ class Database():
 
     def delete_user(self, did: str):
         cur = self.cursor
-        cur.execute("""
+        cur.execute(
+            """
             DELETE FROM downloaded_posts
             WHERE user_did = ?
-        """, (did,))
+        """,
+            (did,),
+        )
         self.connection.commit()
 
         if cur.rowcount > 0:
@@ -140,5 +159,3 @@ class Database():
         con.row_factory = None
 
         return uris
-
-

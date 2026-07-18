@@ -1,6 +1,8 @@
 import logging
-from atproto_identity.handle.resolver import HandleResolver
+
 from atproto_identity.exceptions import DidNotFoundError
+from atproto_identity.handle.resolver import HandleResolver
+
 
 def resolve_handle(handle: str) -> str:
     """
@@ -14,11 +16,12 @@ def resolve_handle(handle: str) -> str:
 
     Returns:
         str: resolved DID
+
     """
     logger = logging.getLogger(__name__)
     try:
-        did = HandleResolver().ensure_resolve(handle)    
+        did = HandleResolver().ensure_resolve(handle)
     except DidNotFoundError:
         logger.error(f"Unable to resolve handle: {handle}")
         raise DidNotFoundError(f"Unable to resolve handle: {handle}")
-    return did  
+    return did
