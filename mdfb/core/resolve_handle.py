@@ -1,9 +1,5 @@
 import logging
 
-from atproto_identity.exceptions import DidNotFoundError
-from atproto_identity.handle.resolver import HandleResolver
-
-
 def resolve_handle(handle: str) -> str:
     """
     resolve_handle: for a given handle, uses atproto API: com.atproto.identity.resolveHandle, to resolve the handle to a DID
@@ -18,6 +14,8 @@ def resolve_handle(handle: str) -> str:
         str: resolved DID
 
     """
+    from atproto_identity.exceptions import DidNotFoundError
+    from atproto_identity.handle.resolver import HandleResolver
     logger = logging.getLogger(__name__)
     try:
         did = HandleResolver().ensure_resolve(handle)

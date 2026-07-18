@@ -1,17 +1,14 @@
+from __future__ import annotations
+
 import getpass
 import logging
 import traceback
 from argparse import ArgumentParser, Namespace
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TYPE_CHECKING
 
 from tqdm import tqdm
 
-from mdfb.core.download_blobs import DownloadBlobs
-from mdfb.core.fetch_post_details import FetchPostDetails
-from mdfb.core.get_bookmarks import BookmarkFetcher
-from mdfb.core.get_feed_details import FetchFeedDetails
-from mdfb.core.get_post_identifiers import PostIdentifierFetcher
-from mdfb.core.models import EnrichedPost
 from mdfb.core.resolve_handle import resolve_handle
 from mdfb.utils.cli_helpers import account_or_did, get_did
 from mdfb.utils.config_manager import ConfigManager
@@ -28,6 +25,9 @@ from mdfb.utils.validation import (
     validate_threads,
 )
 
+if TYPE_CHECKING:
+    from mdfb.core.models import EnrichedPost
+
 
 def fetch_posts(
     did: str,
@@ -40,6 +40,8 @@ def fetch_posts(
     num_threads: int = DEFAULT_THREADS,
     restore: bool = False,
 ) -> list[dict[str, str]]:
+    from mdfb.core.get_bookmarks import BookmarkFetcher
+    from mdfb.core.get_post_identifiers import PostIdentifierFetcher
     post_uris = []
     db = Database()
     has_bookmarks = post_types.get(FeedTypes.BOOKMARK, False)
@@ -84,6 +86,7 @@ def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
         list[dict]: list of dictionaries that contain post details for each post
 
     """
+    from mdfb.core.fetch_post_details import FetchPostDetails
     posts = split_list(posts, num_threads)
     post_details = []
     fetchPost = FetchPostDetails()
@@ -105,6 +108,7 @@ def download_posts(
     directory: str,
     include: str | None = None,
 ):
+    from mdfb.core.download_blobs import DownloadBlobs
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
     with (
@@ -123,6 +127,7 @@ def download_posts(
 
 
 def handle_feed(args: Namespace, parser: ArgumentParser):
+    from mdfb.core.get_feed_details import FetchFeedDetails
     directory = validate_directory(args.directory, parser)
     limit = validate_limit(args.limit)
     setup_logging(directory)
