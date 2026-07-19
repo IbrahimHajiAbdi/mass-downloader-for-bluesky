@@ -13,3 +13,4 @@ dist/
 media/
 scripts/
 .claude
+.ruff_cache/
