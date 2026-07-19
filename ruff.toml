@@ -37,6 +37,7 @@ ignore = [
     "TD002",
     "TD003",
     "FIX002", # too verbose descriptions of todos
+    "PLC0415", # allow imports inside functions
     "PTH113",
     "PTH123",
     "PTH118",
