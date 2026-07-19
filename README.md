@@ -26,7 +26,7 @@ poetry install
 ```
 
 ## Usage
-``mdfb`` works by using the public API offered by bluesky to retrieve posts liked, reposted or posted by the desired account. 
+``mdfb`` works by using the public API offered by bluesky to retrieve posts liked, reposted, posted or bookmarked by the desired account. 
 
 ``mdfb`` will download the information for a post and the accompanying media, video or image(s). If there is no image(s) or video, it will just download the information of the post. The information of the post will be a JSON file and have lots of accompanying data, such as the text in the post, creation time of the post and author details. Currently, the retrieved posts start from the latest post to the oldest.
 
@@ -50,6 +50,10 @@ mdfb download --handle bsky.app --update --like --threads 3 --format "{RKEY}_{HA
 
 ```bash
 mdfb download --restore bsky.app --like --threads 3 --format "{RKEY}_{HANDLE}" ./media/
+```
+
+```bash
+mdfb download --handle bsky.app --bookmark -l 10 --threads 3 --format "{RKEY}_{HANDLE}" ./media/
 ```
 
 ### Naming Convention
@@ -77,6 +81,19 @@ mdfb download --handle bsky.app --archive --like --repost --threads 3 --format "
 ```
 
 This would download all likes and reposts.
+
+### Bookmarks
+``mdfb`` can also download your own bookmarked posts using the ``--bookmark`` flag. Since bookmarks are private to your account, this requires an authenticated session, so ``--bookmark`` must be used together with ``--handle`` (not ``--did``), and you must have logged in with an app password beforehand (see the [Feed](#feed) section below for how ``login`` works).
+
+``--bookmark`` cannot currently be combined with ``--like``, ``--repost`` or ``--post`` in the same command, so it must be run on its own.
+
+#### Example
+```bash
+mdfb download --handle bsky.app --bookmark --archive --threads 3 ./media/
+```
+
+### Note
+The ``--media-types`` flag is currently not applied when downloading bookmarks; all bookmarked posts will be downloaded regardless of the media types they contain.
 
 ### Database
 When downloading posts, `mdfb` inserts into the database some post identifiers. This allows for you to download only new posts from an account that you haven't downloaded yet. 
@@ -136,6 +153,8 @@ The maximum number of threads is currently 3, that can be changed in the ``mdfb/
     - To retrieved reposts
   - ``--post``
     - To retrieved posts
+  - ``--bookmark``
+    - To retrieve your own bookmarked posts. Requires ``--handle`` (bookmarks require an authenticated session) and cannot be combined with ``--like``, ``--repost`` or ``--post``.
   - ``--media-types``
     - Only download posts that contain this specified type of media. Valid keywords are: **image, video and text**.
   - ``--include, -i``
@@ -167,9 +186,11 @@ The maximum number of threads is currently 3, that can be changed in the ``mdfb/
     - Logs resource usage for memory and cpu every 5 seconds. 
 
 ### Note
-At least one of the flags: ``--like``, ``--repost``, ``--post`` are **required** (when using `download`).
+At least one of the flags: ``--like``, ``--repost``, ``--post`` or ``--bookmark`` are **required** (when using `download`).
 
 Both (``--did, -d`` and ``--handle``) and (``--archive``, ``--limit, -l`` and ``--update``) are mutually exclusive, and one of each of them is **required** as well (when using `download`).
+
+``--bookmark`` is mutually exclusive with ``--like``, ``--repost`` and ``--post``, and requires ``--handle`` to be set instead of ``--did``.
 
 The argument ``--media-types`` **needs** to be either before or after any positional arguments. 
 E.g. 
