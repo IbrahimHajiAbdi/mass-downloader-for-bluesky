@@ -28,6 +28,7 @@ class ConfigManager:
 
     def get_authed_client(self) -> Client:
         from atproto import Client
+
         try:
             client = Client()
             client.login(self.handle, self._fetch_app_password())

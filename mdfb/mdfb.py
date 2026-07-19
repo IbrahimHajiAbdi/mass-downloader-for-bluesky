@@ -42,6 +42,7 @@ def fetch_posts(
 ) -> list[dict[str, str]]:
     from mdfb.core.get_bookmarks import BookmarkFetcher
     from mdfb.core.get_post_identifiers import PostIdentifierFetcher
+
     post_uris = []
     db = Database()
     has_bookmarks = post_types.get(FeedTypes.BOOKMARK, False)
@@ -87,6 +88,7 @@ def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
 
     """
     from mdfb.core.fetch_post_details import FetchPostDetails
+
     posts = split_list(posts, num_threads)
     post_details = []
     fetchPost = FetchPostDetails()
@@ -109,6 +111,7 @@ def download_posts(
     include: str | None = None,
 ):
     from mdfb.core.download_blobs import DownloadBlobs
+
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
     with (
@@ -128,6 +131,7 @@ def download_posts(
 
 def handle_feed(args: Namespace, parser: ArgumentParser):
     from mdfb.core.get_feed_details import FetchFeedDetails
+
     directory = validate_directory(args.directory, parser)
     limit = validate_limit(args.limit)
     setup_logging(directory)
