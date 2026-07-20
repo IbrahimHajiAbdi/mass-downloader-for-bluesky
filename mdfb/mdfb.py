@@ -51,7 +51,7 @@ def fetch_posts(
         for post_type, wanted in post_types.items():
             if not wanted:
                 continue
-            if post_type == FeedTypes.BOOKMARK:
+            if post_type == FeedTypes.BOOKMARK and not restore:
                 fetcher = BookmarkFetcher(handle, db)
                 fetch_call = fetcher.fetch_bookmarks
             else:
@@ -175,8 +175,10 @@ def handle_download(args: Namespace, parser: ArgumentParser):
 
     if args.bookmark and (args.like or args.repost or args.post):
         parser.error("--bookmark cannot currently be combined with --like, --repost, or --post.")
-    if args.bookmark and not args.handle:
-        parser.error("--bookmark requires --handle (bookmarks require an authenticated session).")
+    if args.bookmark and (not args.handle and not args.restore):
+        parser.error(
+            "--bookmark requires --handle (bookmarks require an authenticated session) when not restore from database."
+        )
 
     post_types = {
         FeedTypes.LIKE: args.like,
@@ -219,7 +221,7 @@ def handle_download(args: Namespace, parser: ArgumentParser):
     account = account_or_did(args, did)
     validate_no_posts(posts, account, wanted_post_types, args.update, did, args.restore)
 
-    if args.media_types or args.bookmark:
+    if args.media_types or (args.bookmark and not args.restore):
         post_details = posts
     else:
         print("Getting post details...")
