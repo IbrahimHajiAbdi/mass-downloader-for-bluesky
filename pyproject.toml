@@ -47,6 +47,10 @@ classifiers = [
 Repository = "https://github.com/IbrahimHajiAbdi/mass-downloader-for-bluesky.git"
 Issues = "https://github.com/IbrahimHajiAbdi/mass-downloader-for-bluesky/issues"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [tool.pyright]
 include = ["mdfb"]
 exclude = [

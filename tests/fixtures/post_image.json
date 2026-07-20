@@ -1,0 +1,32 @@
+{
+  "author": {
+    "did": "did:plc:3eatnvb2dim4l7fiwln5wow6",
+    "handle": "dailybunnies.bsky.social",
+    "display_name": "daily bunnies",
+    "py_type": "app.bsky.actor.defs#profileViewBasic"
+  },
+  "cid": "bafyreib3qtxun7gvvpjaxk666xxvkltu2oyyghekziswhwtmutz6xz2vh4",
+  "indexed_at": "2025-06-06T14:07:49.256Z",
+  "record": {
+    "created_at": "2025-06-06T14:07:44.486Z",
+    "text": "",
+    "embed": {
+      "images": [
+        {
+          "alt": "A small, white bunny stands on its hind legs, peering out a window.",
+          "image": {
+            "mime_type": "image/jpeg",
+            "size": 659942,
+            "ref": {"link": "bafkreiamy7yinrdcqrqtka4xwhhkbcblv4zxudjlupslnuamzm6tbxofze"},
+            "py_type": "blob"
+          },
+          "py_type": "app.bsky.embed.images#image"
+        }
+      ],
+      "py_type": "app.bsky.embed.images"
+    },
+    "py_type": "app.bsky.feed.post"
+  },
+  "uri": "at://did:plc:3eatnvb2dim4l7fiwln5wow6/app.bsky.feed.post/3lqwz2kuzg22s",
+  "py_type": "app.bsky.feed.defs#postView"
+}
