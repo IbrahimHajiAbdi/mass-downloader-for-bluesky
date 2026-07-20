@@ -42,6 +42,7 @@ def fetch_posts(
 ) -> list[dict[str, str]]:
     from mdfb.core.get_bookmarks import BookmarkFetcher
     from mdfb.core.get_post_identifiers import PostIdentifierFetcher
+
     post_uris = []
     db = Database()
     has_bookmarks = post_types.get(FeedTypes.BOOKMARK, False)
@@ -50,7 +51,7 @@ def fetch_posts(
         for post_type, wanted in post_types.items():
             if not wanted:
                 continue
-            if post_type == FeedTypes.BOOKMARK:
+            if post_type == FeedTypes.BOOKMARK and not restore:
                 fetcher = BookmarkFetcher(handle, db)
                 fetch_call = fetcher.fetch_bookmarks
             else:
@@ -87,6 +88,7 @@ def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
 
     """
     from mdfb.core.fetch_post_details import FetchPostDetails
+
     posts = split_list(posts, num_threads)
     post_details = []
     fetchPost = FetchPostDetails()
@@ -109,6 +111,7 @@ def download_posts(
     include: str | None = None,
 ):
     from mdfb.core.download_blobs import DownloadBlobs
+
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
     with (
@@ -128,6 +131,7 @@ def download_posts(
 
 def handle_feed(args: Namespace, parser: ArgumentParser):
     from mdfb.core.get_feed_details import FetchFeedDetails
+
     directory = validate_directory(args.directory, parser)
     limit = validate_limit(args.limit)
     setup_logging(directory)
@@ -171,8 +175,10 @@ def handle_download(args: Namespace, parser: ArgumentParser):
 
     if args.bookmark and (args.like or args.repost or args.post):
         parser.error("--bookmark cannot currently be combined with --like, --repost, or --post.")
-    if args.bookmark and not args.handle:
-        parser.error("--bookmark requires --handle (bookmarks require an authenticated session).")
+    if args.bookmark and (not args.handle and not args.restore):
+        parser.error(
+            "--bookmark requires --handle (bookmarks require an authenticated session) when not restore from database."
+        )
 
     post_types = {
         FeedTypes.LIKE: args.like,
@@ -215,7 +221,7 @@ def handle_download(args: Namespace, parser: ArgumentParser):
     account = account_or_did(args, did)
     validate_no_posts(posts, account, wanted_post_types, args.update, did, args.restore)
 
-    if args.media_types or args.bookmark:
+    if args.media_types or (args.bookmark and not args.restore):
         post_details = posts
     else:
         print("Getting post details...")

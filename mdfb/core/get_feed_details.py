@@ -2,7 +2,6 @@ import logging
 import re
 import time
 
-from atproto import Client
 from atproto_client.models.app.bsky.feed.get_feed import Response
 
 from mdfb.core.models import EnrichedPost

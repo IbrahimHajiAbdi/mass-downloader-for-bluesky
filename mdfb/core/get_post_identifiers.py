@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 
 from atproto import Client
 
@@ -7,25 +6,6 @@ from mdfb.core.media_types_fetcher import MediaTypesFetcher
 from mdfb.core.uri_fetcher import URIFetcher
 from mdfb.utils.constants import DEFAULT_THREADS
 from mdfb.utils.database import Database
-
-
-@dataclass
-class PostIdentifier:
-    """Represents a post identifier with associated metadata."""
-
-    user_did: str
-    user_post_uri: list[str]
-    feed_type: list[str]
-    poster_post_uri: str
-
-
-@dataclass
-class FetchResult:
-    """Result from fetching a batch of post identifiers."""
-
-    cursor: str
-    limit: int
-    post_uris: list[dict]
 
 
 class PostIdentifierFetcher:
@@ -48,7 +28,7 @@ class PostIdentifierFetcher:
         self.db = db
 
     def fetch(
-        self, limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] = None
+        self, limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] | None = None
     ) -> list[dict]:
         if media_types:
             media_types_fetcher = MediaTypesFetcher(
