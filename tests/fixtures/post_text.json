@@ -1,0 +1,18 @@
+{
+  "author": {
+    "did": "did:plc:vc7f4oafdgxsihk4cry2xpze",
+    "handle": "jcsalterego.bsky.social",
+    "display_name": "Jerry Chen",
+    "py_type": "app.bsky.actor.defs#profileViewBasic"
+  },
+  "cid": "bafyreiabo7kerzlewo33l4y6qqdwgmpjhrpi6yagf7fvzn2tepnstn2lie",
+  "indexed_at": "2024-11-27T20:07:29.966Z",
+  "record": {
+    "created_at": "2024-11-27T20:07:29.775Z",
+    "text": "no i will not pay $29.99/mo to know which one of my posts made it into the bsky slack",
+    "embed": null,
+    "py_type": "app.bsky.feed.post"
+  },
+  "uri": "at://did:plc:vc7f4oafdgxsihk4cry2xpze/app.bsky.feed.post/3lbxe3z66hk2e",
+  "py_type": "app.bsky.feed.defs#postView"
+}
