@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import getpass
 import logging
 import traceback
 from argparse import ArgumentParser, Namespace
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING
 
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from mdfb.core.resolve_handle import resolve_handle
-from mdfb.utils.cli_helpers import account_or_did, get_did
+from mdfb.utils.cli_helpers import FetchConfig, account_or_did, get_did, get_post_fetcher
 from mdfb.utils.config_manager import ConfigManager
 from mdfb.utils.constants import DEFAULT_THREADS, MAX_THREADS, FeedTypes
 from mdfb.utils.database import Database
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from mdfb.core.models import EnrichedPost
 
 
-def fetch_posts(
+async def fetch_posts(
     did: str,
     post_types: dict[str, bool],
     limit: int = 0,
@@ -40,42 +40,39 @@ def fetch_posts(
     num_threads: int = DEFAULT_THREADS,
     restore: bool = False,
 ) -> list[dict[str, str]]:
-    from mdfb.core.get_bookmarks import BookmarkFetcher
-    from mdfb.core.get_post_identifiers import PostIdentifierFetcher
 
     post_uris = []
     db = Database()
     has_bookmarks = post_types.get(FeedTypes.BOOKMARK, False)
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = []
+    fetch_config = FetchConfig(did=did, handle=handle, db=db, num_threads=num_threads, restore=restore)
+
+    tasks = []
+    async with asyncio.TaskGroup() as tg:
         for post_type, wanted in post_types.items():
             if not wanted:
                 continue
-            if post_type == FeedTypes.BOOKMARK and not restore:
-                fetcher = BookmarkFetcher(handle, db)
-                fetch_call = fetcher.fetch_bookmarks
-            else:
-                fetcher = PostIdentifierFetcher(did, post_type, db, num_threads=num_threads, restore=restore)
-                fetch_call = fetcher.fetch
+            fetch_call = get_post_fetcher(post_type, fetch_config)
             if update:
-                if db.check_user_has_posts(did, post_type):
-                    futures.append(executor.submit(fetch_call, archive=archive, update=update, media_types=media_types))
-                else:
+                if not db.check_user_has_posts(fetch_config.did, post_type):
                     raise ValueError(
                         f"This user has no post in database for feed_type: {post_type}, cannot update as you have not downloaded any post for feed_type: {post_type}."
                     )
+                kwargs = dict(archive=archive, update=update, media_types=media_types)
             elif restore and not media_types:
-                futures.append(executor.submit(db.restore_posts, did, {post_type: wanted}))
+                # TODO: sync db path — left for you to offload (e.g. asyncio.to_thread)
+                post_uris.extend(db.restore_posts(did, {post_type: wanted}))
+                continue
             else:
-                futures.append(
-                    executor.submit(fetch_call, limit=limit, archive=archive, update=update, media_types=media_types)
-                )
-        for future in as_completed(futures):
-            post_uris.extend(future.result())
+                kwargs = dict(limit=limit, archive=archive, update=update, media_types=media_types)
+
+            tasks.append(tg.create_task(fetch_call(**kwargs)))
+
+    for task in tasks:
+        post_uris.extend(task.result())
     return dedupe_posts(post_uris) if not (media_types or has_bookmarks) else post_uris
 
 
-def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
+async def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
     """
     process_posts: processes the given list of post URIs to get the post details required for downloading, can be threaded
 
@@ -92,17 +89,23 @@ def process_posts(posts: list, num_threads: int) -> list[EnrichedPost]:
     posts = split_list(posts, num_threads)
     post_details = []
     fetchPost = FetchPostDetails()
+    sem = asyncio.Semaphore(num_threads)
+    tasks = []
+    async def bounded_download(uris: list[dict[str, str]]):
+        async with sem:
+            return await fetchPost.fetch_post_details(uris)
 
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = []
+    async with asyncio.TaskGroup() as tg:
         for post_batch in posts:
-            futures.append(executor.submit(fetchPost.fetch_post_details, post_batch))
-        for future in as_completed(futures):
-            post_details.extend(future.result())
+            task = tg.create_task(bounded_download(post_batch))
+            tasks.append(task)
+
+    for task in tasks:
+        post_details.extend(task.result())
     return post_details
 
 
-def download_posts(
+async def download_posts(
     post_link_batches: list[list[EnrichedPost]],
     num_of_posts: int,
     num_threads: int,
@@ -114,22 +117,23 @@ def download_posts(
 
     logger = logging.getLogger(__name__)
     downloadBlobs = DownloadBlobs(logger, directory, Database(), filename_format_string, include)
-    with (
-        tqdm(total=num_of_posts, desc="Downloading files") as progress_bar,
-        ThreadPoolExecutor(max_workers=num_threads) as executor,
+    progress_bar = tqdm(total=num_of_posts, desc="Downloading files")
+    completed_downloads = []
+    sem = asyncio.Semaphore(num_threads)
+
+    async def bounded_download(posts: list[EnrichedPost], progress_bar: tqdm):
+        async with sem:
+            await downloadBlobs.download_blobs(posts, progress_bar)
+
+    async with (
+        asyncio.TaskGroup() as tg
     ):
-        futures = []
         for batch_post_link in post_link_batches:
-            futures.append(executor.submit(downloadBlobs.download_blobs, batch_post_link, progress_bar))
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"Error in thread: {e}")
-                logger.error(f"Error in thread: {e}", exc_info=True)
+            task = tg.create_task(bounded_download(batch_post_link, progress_bar))
+            completed_downloads.append(task)
 
 
-def handle_feed(args: Namespace, parser: ArgumentParser):
+async def handle_feed(args: Namespace, parser: ArgumentParser):
     from mdfb.core.get_feed_details import FetchFeedDetails
 
     directory = validate_directory(args.directory, parser)
@@ -141,11 +145,11 @@ def handle_feed(args: Namespace, parser: ArgumentParser):
     print("Fetching feed details...")
 
     fetchFeed = FetchFeedDetails(args.handle, args.url)
-    posts = fetchFeed.fetch(limit, args.media_types)
+    posts = await fetchFeed.fetch(limit, args.media_types)
 
     post_link_batches = split_list(posts, num_threads)
 
-    download_posts(post_link_batches, len(posts), num_threads, filename_format_string, directory, include=args.include)
+    await download_posts(post_link_batches, len(posts), num_threads, filename_format_string, directory, include=args.include)
 
 
 def handle_login():
@@ -163,7 +167,7 @@ def handle_db(args: Namespace, parser: ArgumentParser):
         return
 
 
-def handle_download(args: Namespace, parser: ArgumentParser):
+async def handle_download(args: Namespace, parser: ArgumentParser):
     did = get_did(args)
     directory = validate_directory(args.directory, parser)
     setup_logging(directory)
@@ -189,7 +193,7 @@ def handle_download(args: Namespace, parser: ArgumentParser):
 
     print("Fetching post identifiers...")
     if args.restore:
-        posts = fetch_posts(
+        posts = await fetch_posts(
             did,
             post_types,
             archive=True,
@@ -199,11 +203,11 @@ def handle_download(args: Namespace, parser: ArgumentParser):
             handle=args.handle,
         )
     elif args.archive:
-        posts = fetch_posts(
+        posts = await fetch_posts(
             did, post_types, archive=True, media_types=args.media_types, num_threads=num_threads, handle=args.handle
         )
     elif args.update:
-        posts = fetch_posts(
+        posts = await fetch_posts(
             did,
             post_types,
             archive=True,
@@ -214,7 +218,7 @@ def handle_download(args: Namespace, parser: ArgumentParser):
         )
     else:
         limit = validate_limit(args.limit)
-        posts = fetch_posts(
+        posts = await fetch_posts(
             did, post_types, limit=limit, media_types=args.media_types, num_threads=num_threads, handle=args.handle
         )
     wanted_post_types = [post_type for post_type, wanted in post_types.items() if wanted]
@@ -225,15 +229,15 @@ def handle_download(args: Namespace, parser: ArgumentParser):
         post_details = posts
     else:
         print("Getting post details...")
-        post_details = process_posts(posts, num_threads)
+        post_details = await process_posts(posts, num_threads)
 
     num_of_posts = len(post_details)
     post_links = split_list(post_details, num_threads)
 
-    download_posts(post_links, num_of_posts, num_threads, filename_format_string, directory, args.include)
+    await download_posts(post_links, num_of_posts, num_threads, filename_format_string, directory, args.include)
 
 
-def main():
+async def main():
     parser = ArgumentParser()
 
     subparsers = parser.add_subparsers(dest="subcommand", required=False)
@@ -325,18 +329,23 @@ def main():
     try:
         if args.subcommand == "download":
             validate_download(args, parser)
-            handle_download(args, parser)
+            await handle_download(args, parser)
         elif args.subcommand == "db":
             handle_db(args, parser)
         elif args.subcommand == "login":
             handle_login()
         elif args.subcommand == "feed":
-            handle_feed(args, parser)
+            await handle_feed(args, parser)
 
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
 
 
+def cli():
+    """Synchronous entry point for the ``mdfb`` console script."""
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
-    main()
+    cli()

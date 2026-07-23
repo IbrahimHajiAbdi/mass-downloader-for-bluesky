@@ -1,12 +1,12 @@
+import asyncio
 import encodings
 import logging
 import os
 import re
-import time
 
-from atproto import Client
+import aiofiles
+from atproto import AsyncClient
 from atproto_client.models.com.atproto.sync.get_blob import ParamsDict
-from atproto_client.namespaces.sync_ns import ComAtprotoSyncNamespace
 from pathvalidate import sanitize_filename
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
@@ -18,15 +18,16 @@ from mdfb.utils.database import Database
 
 class DownloadBlobs:
     def __init__(
-        self, logger: logging.Logger, file_path: str, db: Database, filename_format_string: str, include: str = None
+        self, logger: logging.Logger, file_path: str, db: Database, filename_format_string: str, include: str | None = None
     ):
         self.logger = logger or logging.getLogger(__name__)
         self.file_path = file_path
         self.db = db
+        self.client = AsyncClient()
         self.filename_format_string = filename_format_string or "{RKEY}_{HANDLE}_{TEXT}"
         self.include = include
 
-    def download_blobs(self, posts: list[EnrichedPost], progress_bar: tqdm) -> None:
+    async def download_blobs(self, posts: list[EnrichedPost], progress_bar: tqdm) -> None:
         """
         download_blobs: for the given posts, returned from fetch_post_details(), and filepath, downloads the associated blobs for each post.
 
@@ -35,8 +36,6 @@ class DownloadBlobs:
             progress_bar (tqdm): progress bar
 
         """
-        sucessful_downloads = []
-
         for post in posts:
             did = post.did
             filename_options = {}
@@ -47,22 +46,21 @@ class DownloadBlobs:
             if self.include:
                 if "json" in self.include:
                     self._download_json(filename, post)
-                    time.sleep(DELAY)
+                    await asyncio.sleep(DELAY)
                 elif "media" in self.include:
-                    self._download_media(post, filename, did)
+                    await self._download_media(post, filename, did)
             else:
-                self._download_media(post, filename, did)
+                await self._download_media(post, filename, did)
                 self._download_json(filename, post)
 
             rows = self._successful_download(post, progress_bar)
             if rows:
-                sucessful_downloads.extend(rows)
-        self.db.insert_post(sucessful_downloads)
-        self.db.connection.commit()
+                self.db.insert_post(rows)
+                self.db.connection.commit()
 
-    def _get_blob_with_retries(self, did: str, cid: str, filename: str) -> bool:
+    async def _get_blob_with_retries(self, did: str, cid: str, filename: str) -> bool:
         try:
-            self._get_blob(did, cid, filename)
+            await self._get_blob(did, cid, filename)
             return True
         except Exception:
             self.logger.error(
@@ -75,11 +73,11 @@ class DownloadBlobs:
         wait=wait_exponential(multiplier=EXP_WAIT_MULTIPLIER, min=EXP_WAIT_MIN, max=EXP_WAIT_MAX),
         stop=stop_after_attempt(RETRIES),
     )
-    def _get_blob(self, did: str, cid: str, filename: str):
+    async def _get_blob(self, did: str, cid: str, filename: str):
         try:
-            res = ComAtprotoSyncNamespace(Client()).get_blob(ParamsDict(did=did, cid=cid))
-            with open(os.path.join(self.file_path, filename), "wb") as file:
-                file.write(res)
+            res = await self.client.com.atproto.sync.get_blob(ParamsDict(did=did, cid=cid))
+            async with aiofiles.open(os.path.join(self.file_path, filename), "wb") as file:
+                await file.write(res)
         except Exception:
             self.logger.error(f"Error occured for downloading this file, DID: {did}, CID: {cid}", exc_info=True)
             raise
@@ -98,25 +96,25 @@ class DownloadBlobs:
             filename += f".{file_type}"
         return filename
 
-    def _download_media(self, post: EnrichedPost, filename: str, did: str):
-        if getattr(post, "video_cids", None):
+    async def _download_media(self, post: EnrichedPost, filename: str, did: str):
+        if post.video_cids:
             for video_cid in post.video_cids:
                 video_filename = self._append_extension(filename, post.mime_type)
-                success = self._get_blob_with_retries(did, video_cid, video_filename)
+                success = await self._get_blob_with_retries(did, video_cid, video_filename)
                 if success:
                     self.logger.info(f"Successful downloaded video: {video_filename}")
-            time.sleep(DELAY)
+            await asyncio.sleep(DELAY)
 
-        if getattr(post, "images_cid", None):
+        if post.images_cid:
             for index, image_cid in enumerate(post.images_cid):
                 if len(post.images_cid) > 1:
                     image_filename = self._append_extension(filename, post.mime_type, index + 1)
                 else:
                     image_filename = self._append_extension(filename, post.mime_type)
-                success = self._get_blob_with_retries(did, image_cid, image_filename)
+                success = await self._get_blob_with_retries(did, image_cid, image_filename)
                 if success:
                     self.logger.info(f"Successful downloaded image: {image_filename}")
-                time.sleep(DELAY)
+                await asyncio.sleep(DELAY)
 
     def _download_json(self, filename: str, post: EnrichedPost):
         with open(f"{os.path.join(self.file_path, filename)}.json", "w") as json_file:

@@ -1,10 +1,10 @@
+import asyncio
 import logging
-import time
 
+from atproto import AsyncClient
 from atproto.exceptions import AtProtocolError
 from atproto_client.models.app.bsky.bookmark.get_bookmarks import ParamsDict, Response
 from atproto_client.models.app.bsky.feed.defs import BlockedPost, NotFoundPost, PostView
-from atproto_client.namespaces.sync_ns import AppBskyBookmarkNamespace
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from mdfb.core import resolve_handle
@@ -22,13 +22,18 @@ class BookmarkFetcher:
         self.handle = handle
         self.did = did or resolve_handle.resolve_handle(handle)
         self.config_manager = ConfigManager(handle)
-        self.client = ConfigManager(handle).get_authed_client()
         self.logger = logger or logging.getLogger(__name__)
         self.db = db
+        self.client: AsyncClient | None = None
         self.feed_type = FeedTypes.BOOKMARK
         self.seen_uris = set()
 
-    def fetch_bookmarks(
+    async def _get_client(self) -> AsyncClient:
+        if self._client is None:
+            self._client = await ConfigManager(self.handle).get_authed_async_client()
+        return self._client
+
+    async def fetch_bookmarks(
         self, limit: int = 0, archive: bool = False, update: bool = False, media_types: list[str] | None = None
     ) -> list[EnrichedPost]:
         """
@@ -58,7 +63,7 @@ class BookmarkFetcher:
         """
         all_post_details = []
 
-        bookmarks = self._get_bookmarks(limit, archive, update)
+        bookmarks = await self._get_bookmarks(limit, archive, update)
 
         for post in bookmarks:
             post_details = PostParser.parse_post(post, self.seen_uris, self.logger)
@@ -70,13 +75,14 @@ class BookmarkFetcher:
             return PostParser.filter_media_types(all_post_details, media_types)
         return all_post_details
 
-    def _get_bookmarks(self, limit: int = 0, archive: bool = False, update: bool = False) -> list[PostView]:
+    async def _get_bookmarks(self, limit: int = 0, archive: bool = False, update: bool = False) -> list[PostView]:
         cursor = ""
         bookmarks = []
         while limit > 0 or archive or update:
-            res_raw = self._fetch_from_api(ParamsDict(cursor=cursor), self.BATCH_SIZE)
+            res_raw = await self._fetch_from_api(ParamsDict(cursor=cursor), self.BATCH_SIZE)
 
-            time.sleep(DELAY)
+            await asyncio.sleep(DELAY)
+
             cursor = res_raw.cursor
             res = self._validate_bookmarks(res_raw)
             limit -= self.BATCH_SIZE
@@ -94,11 +100,11 @@ class BookmarkFetcher:
         wait=wait_exponential(multiplier=EXP_WAIT_MULTIPLIER, min=EXP_WAIT_MIN, max=EXP_WAIT_MAX),
         stop=stop_after_attempt(RETRIES),
     )
-    def _fetch_from_api(self, params: ParamsDict, fetch_amount: int) -> Response:
+    async def _fetch_from_api(self, params: ParamsDict, fetch_amount: int) -> Response:
         try:
             self.logger.info(f"Attempting to fetch up to {fetch_amount} bookmarks for DID: {self.did}")
-
-            return AppBskyBookmarkNamespace(self.client).get_bookmarks(params)
+            client = await self._get_client()
+            return await client.app.bsky.bookmark.get_bookmarks(params)
 
         except (AtProtocolError, RetryError):
             self.logger.exception(f"Error occurred fetching posts from: {params}, fetch amount: {fetch_amount}")

@@ -1,11 +1,10 @@
+import asyncio
 import logging
-import time
 
-from atproto import Client
+from atproto import AsyncClient
 from atproto.exceptions import AtProtocolError
 from atproto_client.models.app.bsky.feed.defs import PostView
 from atproto_client.models.app.bsky.feed.get_posts import ParamsDict
-from atproto_client.namespaces.sync_ns import AppBskyFeedNamespace
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from mdfb.core.models import EnrichedPost
@@ -19,10 +18,10 @@ class FetchPostDetails:
 
     def __init__(self, logger: logging.Logger | None = None):
         self.logger = logger or logging.getLogger(__name__)
-        self.client = Client("https://public.api.bsky.app/")
+        self.client = AsyncClient("https://public.api.bsky.app/")
         self.seen_uris = set()
 
-    def fetch_post_details(self, uris: list[dict[str, str]]) -> list[EnrichedPost]:
+    async def fetch_post_details(self, uris: list[dict[str, str]]) -> list[EnrichedPost]:
         """
         fetch_post_details: Fetches post details from the given AT-URIs
 
@@ -37,7 +36,7 @@ class FetchPostDetails:
 
         for uri_chunk in get_chunk(uris, self.BATCH_SIZE):
             self.logger.info(f"Fetching details from {len(uri_chunk)} URIs")
-            res = self._get_post_details_with_retries(uri_chunk)
+            res = await self._get_post_details_with_retries(uri_chunk)
             if not res:
                 continue
             records = res.posts
@@ -56,12 +55,12 @@ class FetchPostDetails:
                     self.logger.info(
                         f"The post associated with this URI is missing/deleted: {uri.get('poster_post_uri')}"
                     )
-            time.sleep(DELAY)
+            await asyncio.sleep(DELAY)
         return all_post_details
 
-    def _get_post_details_with_retries(self, uri_chunk: list[dict]):
+    async def _get_post_details_with_retries(self, uri_chunk: list[dict]):
         try:
-            return self._get_post_details(uri_chunk)
+            return await self._get_post_details(uri_chunk)
         except (RetryError, AtProtocolError):
             self.logger.error(f"Failure to fetch records from the URIs: {uri_chunk}", exc_info=True)
 
@@ -69,10 +68,10 @@ class FetchPostDetails:
         wait=wait_exponential(multiplier=EXP_WAIT_MULTIPLIER, min=EXP_WAIT_MIN, max=EXP_WAIT_MAX),
         stop=stop_after_attempt(RETRIES),
     )
-    def _get_post_details(self, uri_chunk: list[dict]):
+    async def _get_post_details(self, uri_chunk: list[dict]):
         try:
             uris = [uris["poster_post_uri"] for uris in uri_chunk]
-            res = AppBskyFeedNamespace(self.client).get_posts(ParamsDict(uris=uris))
+            res = await self.client.app.bsky.feed.get_posts(ParamsDict(uris=uris))
             return res
         except (AtProtocolError, RetryError):
             self.logger.error(f"Error occurred fetching records from URIs: {uri_chunk}", exc_info=True)

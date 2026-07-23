@@ -9,7 +9,7 @@ import platformdirs
 import yaml
 
 if TYPE_CHECKING:
-    from atproto import Client
+    from atproto import AsyncClient, Client
 
 
 class ConfigManager:
@@ -32,6 +32,18 @@ class ConfigManager:
         try:
             client = Client()
             client.login(self.handle, self._fetch_app_password())
+            return client
+        except Exception:
+            msg = "There is an error logging in. App password may be expired or deleted. Please log in again via `mdfb login`"
+            self.logger.error(msg)
+            raise ValueError(msg)
+
+    async def get_authed_async_client(self) -> AsyncClient:
+        from atproto import AsyncClient
+
+        try:
+            client = AsyncClient()
+            await client.login(self.handle, self._fetch_app_password())
             return client
         except Exception:
             msg = "There is an error logging in. App password may be expired or deleted. Please log in again via `mdfb login`"

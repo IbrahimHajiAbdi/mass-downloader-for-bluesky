@@ -1,8 +1,8 @@
+import asyncio
 import logging
 import re
-import time
 
-from atproto_client.models.app.bsky.feed.get_feed import Response
+from atproto import AsyncClient
 
 from mdfb.core.models import EnrichedPost
 from mdfb.core.post_parser import PostParser
@@ -21,11 +21,16 @@ class FetchFeedDetails:
         self.config_manager = ConfigManager(handle)
         self.seen_uris = set()
         self.config_manager.existance_check()
-        self.client = ConfigManager(self.handle).get_authed_client()
+        self._client: AsyncClient | None = None
         self.feed_url = feed_url
         self._validate_feed_url()
 
-    def fetch(self, limit: int, media_types: list[str] | None = None) -> list[EnrichedPost]:
+    async def _get_client(self) -> AsyncClient:
+        if self._client is None:
+            self._client = await ConfigManager(self.handle).get_authed_async_client()
+        return self._client
+
+    async def fetch(self, limit: int, media_types: list[str] | None = None) -> list[EnrichedPost]:
         feed_uri = self._resolve_feed()
         self.logger.info(f"Sucessfully resolved feed URL: {self.feed_url} to {feed_uri}")
 
@@ -35,7 +40,8 @@ class FetchFeedDetails:
         while limit > 0:
             fetch_amount = min(limit, self.BATCH_SIZE)
 
-            data = self.client.app.bsky.feed.get_feed({"feed": feed_uri, "limit": fetch_amount, "cursor": cursor})
+            client = await self._get_client()
+            data = await client.app.bsky.feed.get_feed({"feed": feed_uri, "limit": fetch_amount, "cursor": cursor})
 
             self.logger.info(f"Successfully retrieved {fetch_amount} posts from feed: {self.feed_url}, URI: {feed_uri}")
 
@@ -52,17 +58,8 @@ class FetchFeedDetails:
 
             res.extend(processed_posts)
 
-            time.sleep(DELAY)
+            await asyncio.sleep(DELAY)
         return res
-
-    def _process_batch_posts(self, posts: Response) -> list[EnrichedPost]:
-        processed = []
-
-        for post in posts.feed:
-            processed_post = PostParser.parse_post(post.post, self.seen_uris, self.logger)
-            processed.append(processed_post)
-        self.logger.info(f"Successfully processed {len(processed)} posts")
-        return processed
 
     def _resolve_feed(self) -> str:
         handle = PostParser.extract_handle(self.feed_url)
