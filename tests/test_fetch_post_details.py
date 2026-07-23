@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from atproto.exceptions import AtProtocolError
@@ -34,7 +34,9 @@ class TestFetchPostDetails:
     def get_posts_returns_image(self):
         response = GetPostsResponse(posts=[load_postview("post_image")])
         with patch(
-            "atproto_client.namespaces.sync_ns.AppBskyFeedNamespace.get_posts", return_value=response
+            "atproto_client.namespaces.async_ns.AppBskyFeedNamespace.get_posts",
+            new_callable=AsyncMock,
+            return_value=response,
         ) as mock_get_posts:
             yield mock_get_posts
 
@@ -42,12 +44,14 @@ class TestFetchPostDetails:
     def get_posts_returns_empty(self):
         response = GetPostsResponse(posts=[])
         with patch(
-            "atproto_client.namespaces.sync_ns.AppBskyFeedNamespace.get_posts", return_value=response
+            "atproto_client.namespaces.async_ns.AppBskyFeedNamespace.get_posts",
+            new_callable=AsyncMock,
+            return_value=response,
         ) as mock_get_posts:
             yield mock_get_posts
 
-    def test_fetch_post_details(self, get_posts_returns_image):
-        result = fetch_post_details.FetchPostDetails().fetch_post_details(_image_uri_chunk())
+    async def test_fetch_post_details(self, get_posts_returns_image):
+        result = await fetch_post_details.FetchPostDetails().fetch_post_details(_image_uri_chunk())
 
         assert len(result) == 1
         post = result[0]
@@ -62,12 +66,12 @@ class TestFetchPostDetails:
         assert post.user_did == "did:plc:u6iyyil77bqv5fknwauj3tfk"
         assert post.poster_post_uri == IMAGE_URI
 
-    def test_fetch_post_details_no_uris(self):
-        assert fetch_post_details.FetchPostDetails().fetch_post_details([]) == []
+    async def test_fetch_post_details_no_uris(self):
+        assert await fetch_post_details.FetchPostDetails().fetch_post_details([]) == []
 
-    def test_fetch_post_details_deleted_post(self, get_posts_returns_empty, caplog):
+    async def test_fetch_post_details_deleted_post(self, get_posts_returns_empty, caplog):
         with caplog.at_level(logging.INFO):
-            result = fetch_post_details.FetchPostDetails().fetch_post_details(_image_uri_chunk())
+            result = await fetch_post_details.FetchPostDetails().fetch_post_details(_image_uri_chunk())
         assert result == []
         assert "The post associated with this URI is missing/deleted:" in caplog.text
 
@@ -80,42 +84,48 @@ class TestGetPostDetails:
 
     @pytest.fixture
     def get_posts_retry_error(self):
-        with patch("atproto_client.namespaces.sync_ns.AppBskyFeedNamespace.get_posts") as mock_get_posts:
+        with patch(
+            "atproto_client.namespaces.async_ns.AppBskyFeedNamespace.get_posts", new_callable=AsyncMock
+        ) as mock_get_posts:
             mock_get_posts.side_effect = [AtProtocolError(), AtProtocolError(), AtProtocolError()]
             yield mock_get_posts
 
     @pytest.fixture
     def get_posts_retry_then_succeed(self):
         success_data = GetPostsResponse(posts=[])
-        with patch("atproto_client.namespaces.sync_ns.AppBskyFeedNamespace.get_posts") as mock_get_posts:
+        with patch(
+            "atproto_client.namespaces.async_ns.AppBskyFeedNamespace.get_posts", new_callable=AsyncMock
+        ) as mock_get_posts:
             mock_get_posts.side_effect = [AtProtocolError(), success_data]
             yield {"mock": mock_get_posts, "success_data": success_data}
 
     @pytest.fixture
     def get_posts_succeeds(self):
         success_data = GetPostsResponse(posts=[])
-        with patch("atproto_client.namespaces.sync_ns.AppBskyFeedNamespace.get_posts") as mock_get_posts:
+        with patch(
+            "atproto_client.namespaces.async_ns.AppBskyFeedNamespace.get_posts", new_callable=AsyncMock
+        ) as mock_get_posts:
             mock_get_posts.side_effect = [success_data]
             yield {"mock": mock_get_posts, "success_data": success_data}
 
-    def test_get_post_details_exceeds_retries(self, get_posts_retry_error):
+    async def test_get_post_details_exceeds_retries(self, get_posts_retry_error):
         with pytest.raises(RetryError):
-            fetch_post_details.FetchPostDetails()._get_post_details([{"poster_post_uri": ""}])
+            await fetch_post_details.FetchPostDetails()._get_post_details([{"poster_post_uri": ""}])
 
-    def test_get_post_details_with_retries_success(self, get_posts_succeeds):
-        result = fetch_post_details.FetchPostDetails()._get_post_details_with_retries([{"poster_post_uri": ""}])
+    async def test_get_post_details_with_retries_success(self, get_posts_succeeds):
+        result = await fetch_post_details.FetchPostDetails()._get_post_details_with_retries([{"poster_post_uri": ""}])
         assert result == get_posts_succeeds["success_data"]
 
-    def test_get_post_details_with_retries_failure(self, get_posts_retry_error, caplog):
+    async def test_get_post_details_with_retries_failure(self, get_posts_retry_error, caplog):
         uris = [{"poster_post_uri": ""}]
         with caplog.at_level(logging.ERROR):
-            result = fetch_post_details.FetchPostDetails()._get_post_details_with_retries(uris)
+            result = await fetch_post_details.FetchPostDetails()._get_post_details_with_retries(uris)
         assert result is None
         assert f"Failure to fetch records from the URIs: {uris}" in caplog.text
 
-    def test_get_post_details_retries_then_succeeds(self, get_posts_retry_then_succeed, caplog):
+    async def test_get_post_details_retries_then_succeeds(self, get_posts_retry_then_succeed, caplog):
         with caplog.at_level(logging.ERROR):
-            result = fetch_post_details.FetchPostDetails()._get_post_details_with_retries([{"poster_post_uri": ""}])
+            result = await fetch_post_details.FetchPostDetails()._get_post_details_with_retries([{"poster_post_uri": ""}])
         assert result == get_posts_retry_then_succeed["success_data"]
         assert "Error occurred fetching records from URIs:" in caplog.text
 

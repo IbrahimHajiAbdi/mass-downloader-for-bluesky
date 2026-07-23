@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from atproto.exceptions import AtProtocolError
@@ -68,20 +68,26 @@ class TestDownloadBlobs:
 
     @pytest.fixture
     def successful_get_blob(self):
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoSyncNamespace.get_blob") as mock_download_blob:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoSyncNamespace.get_blob", new_callable=AsyncMock
+        ) as mock_download_blob:
             mock_blob_data = b"0x3eb"
             mock_download_blob.return_value = mock_blob_data
             yield {"returned": mock_download_blob, "expected": mock_blob_data}
 
     @pytest.fixture
     def exceed_retries_get_blob(self):
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoSyncNamespace.get_blob") as mock_download_blob:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoSyncNamespace.get_blob", new_callable=AsyncMock
+        ) as mock_download_blob:
             mock_download_blob.side_effect = [AtProtocolError(), AtProtocolError(), AtProtocolError()]
             yield mock_download_blob
 
     @pytest.fixture
     def retries_then_succeeds_get_blob(self):
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoSyncNamespace.get_blob") as mock_download_blob:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoSyncNamespace.get_blob", new_callable=AsyncMock
+        ) as mock_download_blob:
             mock_blob_data = b"0x3eb"
             mock_download_blob.side_effect = [AtProtocolError(), mock_blob_data]
             yield {"returned": mock_download_blob, "expected": mock_blob_data}
@@ -105,41 +111,41 @@ class TestDownloadBlobs:
             feed_type=["repost"],
         )
 
-    def test_get_blob(self, blobs, successful_get_blob, temp_dir):
+    async def test_get_blob(self, blobs, successful_get_blob, temp_dir):
         mock_filename = "example_filename.jpg"
-        blobs._get_blob("mock_did", "mock_cid", mock_filename)
+        await blobs._get_blob("mock_did", "mock_cid", mock_filename)
 
         expected_file_path = os.path.join(temp_dir, mock_filename)
         assert os.path.exists(expected_file_path)
         with open(expected_file_path, "rb") as f:
             assert f.read() == successful_get_blob["expected"]
 
-    def test_get_blob_exceed_retries(self, blobs, exceed_retries_get_blob, caplog):
+    async def test_get_blob_exceed_retries(self, blobs, exceed_retries_get_blob, caplog):
         mock_did, mock_cid = "did:example:1234", "example_1234"
         with caplog.at_level(logging.ERROR), pytest.raises(Exception):
-            blobs._get_blob(mock_did, mock_cid, "example_filename")
+            await blobs._get_blob(mock_did, mock_cid, "example_filename")
 
         assert exceed_retries_get_blob.call_count == 2
         assert f"Error occured for downloading this file, DID: {mock_did}, CID: {mock_cid}" in caplog.text
 
-    def test_get_blob_retries_then_succeeds(self, blobs, retries_then_succeeds_get_blob, caplog):
+    async def test_get_blob_retries_then_succeeds(self, blobs, retries_then_succeeds_get_blob, caplog):
         mock_did, mock_cid = "did:example:1234", "example_1234"
         with caplog.at_level(logging.ERROR):
-            blobs._get_blob(mock_did, mock_cid, "example_filename")
+            await blobs._get_blob(mock_did, mock_cid, "example_filename")
 
         assert retries_then_succeeds_get_blob["returned"].call_count == 2
         assert f"Error occured for downloading this file, DID: {mock_did}, CID: {mock_cid}" in caplog.text
 
-    def test_get_blob_with_retries_failure(self, blobs, exceed_retries_get_blob, caplog):
+    async def test_get_blob_with_retries_failure(self, blobs, exceed_retries_get_blob, caplog):
         mock_did, mock_cid = "did:example:1234", "example_1234"
         with caplog.at_level(logging.ERROR):
-            response = blobs._get_blob_with_retries(mock_did, mock_cid, "example_filename")
+            response = await blobs._get_blob_with_retries(mock_did, mock_cid, "example_filename")
 
         assert not response
         assert f"Error occured for downloading this file, DID: {mock_did}, CID: {mock_cid}" in caplog.text
 
-    def test_get_blob_with_retries_success(self, blobs, successful_get_blob, temp_dir):
-        response = blobs._get_blob_with_retries("did:example:1234", "example_1234", "example_filename")
+    async def test_get_blob_with_retries_success(self, blobs, successful_get_blob, temp_dir):
+        response = await blobs._get_blob_with_retries("did:example:1234", "example_1234", "example_filename")
 
         expected_file_path = os.path.join(temp_dir, "example_filename")
         assert os.path.exists(expected_file_path)
@@ -148,9 +154,9 @@ class TestDownloadBlobs:
         assert response
         assert successful_get_blob["returned"].call_count == 1
 
-    def test_download_blob(self, blobs, enriched_image_post, successful_get_blob, temp_dir):
+    async def test_download_blob(self, blobs, enriched_image_post, successful_get_blob, temp_dir):
         base_filename = "3lqwz2kuzg22s_dailybunnies.bsky.social_"
-        blobs.download_blobs([enriched_image_post], Mock())
+        await blobs.download_blobs([enriched_image_post], Mock())
 
         expected_image = os.path.join(temp_dir, base_filename + ".jpeg")
         expected_json = os.path.join(temp_dir, base_filename + ".json")

@@ -1,6 +1,6 @@
 import json
 import logging
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from atproto.exceptions import AtProtocolError
@@ -70,28 +70,32 @@ class TestPostIdentifierFetcher:
                 "poster_post_uri": "at://did:plc:vc7f4oafdgxsihk4cry2xpze/app.bsky.feed.post/3lbxe3z66hk2e",
             },
         ]
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoRepoNamespace.list_records") as mock_api_response:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoRepoNamespace.list_records", new_callable=AsyncMock
+        ) as mock_api_response:
             mock_response = MagicMock()
             mock_response.model_dump_json.return_value = json.dumps(mock_json_response)
             mock_api_response.return_value = mock_response
             yield {"mock_api_response": mock_api_response, "expected": expected}
 
-    def test_fetch_liked(self, list_records_two_likes):
+    async def test_fetch_liked(self, list_records_two_likes):
         fetcher = get_post_identifiers.PostIdentifierFetcher(DID, "like", Mock())
-        result = fetcher.fetch(limit=2)
+        result = await fetcher.fetch(limit=2)
 
         assert result == list_records_two_likes["expected"]
         list_records_two_likes["mock_api_response"].assert_called_once_with(
             {"collection": "app.bsky.feed.like", "repo": DID, "limit": 2, "cursor": ""}
         )
 
-    def test_fetch_no_likes(self):
+    async def test_fetch_no_likes(self):
         mock_response = MagicMock()
         mock_response.model_dump_json.return_value = json.dumps({"records": []})
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoRepoNamespace.list_records") as mock_api_response:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoRepoNamespace.list_records", new_callable=AsyncMock
+        ) as mock_api_response:
             mock_api_response.return_value = mock_response
             fetcher = get_post_identifiers.PostIdentifierFetcher(DID, "like", Mock())
-            assert fetcher.fetch(limit=2) == []
+            assert await fetcher.fetch(limit=2) == []
 
 
 class TestMediaTypesFetch:
@@ -116,28 +120,38 @@ class TestMediaTypesFetch:
             ],
             "cursor": "3ld7z46debo2g",
         }
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoRepoNamespace.list_records") as mock_api_response:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoRepoNamespace.list_records", new_callable=AsyncMock
+        ) as mock_api_response:
             mock_response = MagicMock()
             mock_response.model_dump_json.return_value = json.dumps(mock_json_response)
             mock_api_response.return_value = mock_response
             yield mock_api_response
 
-    def test_media_types_keeps_matching(self, list_records_two_likes):
+    async def test_media_types_keeps_matching(self, list_records_two_likes):
         canned = [_enriched(["image"]), _enriched(["text"])]
         # Patch at the use-site: MediaTypesFetcher binds FetchPostDetails at import, and other
         # tests reload the fetch_post_details module, rebinding its class identity.
-        with patch("mdfb.core.media_types_fetcher.FetchPostDetails.fetch_post_details", return_value=canned):
+        with patch(
+            "mdfb.core.media_types_fetcher.FetchPostDetails.fetch_post_details",
+            new_callable=AsyncMock,
+            return_value=canned,
+        ):
             fetcher = get_post_identifiers.PostIdentifierFetcher(DID, "like", Mock())
-            result = fetcher.fetch(limit=2, media_types=["image"])
+            result = await fetcher.fetch(limit=2, media_types=["image"])
 
         assert len(result) == 1
         assert result[0].media_type == ["image"]
 
-    def test_media_types_none_match(self, list_records_two_likes):
+    async def test_media_types_none_match(self, list_records_two_likes):
         canned = [_enriched(["text"])]
-        with patch("mdfb.core.media_types_fetcher.FetchPostDetails.fetch_post_details", return_value=canned):
+        with patch(
+            "mdfb.core.media_types_fetcher.FetchPostDetails.fetch_post_details",
+            new_callable=AsyncMock,
+            return_value=canned,
+        ):
             fetcher = get_post_identifiers.PostIdentifierFetcher(DID, "like", Mock())
-            result = fetcher.fetch(limit=2, media_types=["image"])
+            result = await fetcher.fetch(limit=2, media_types=["image"])
 
         assert result == []
 
@@ -154,7 +168,9 @@ class TestURIFetcherRetries:
 
     @pytest.fixture
     def list_records_retry_error(self):
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoRepoNamespace.list_records") as mock_api_response:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoRepoNamespace.list_records", new_callable=AsyncMock
+        ) as mock_api_response:
             mock_api_response.side_effect = [AtProtocolError(), AtProtocolError(), AtProtocolError()]
             yield mock_api_response
 
@@ -163,20 +179,22 @@ class TestURIFetcherRetries:
         success_data = ["success!"]
         mock_response = Mock()
         mock_response.model_dump_json.return_value = json.dumps(success_data)
-        with patch("atproto_client.namespaces.sync_ns.ComAtprotoRepoNamespace.list_records") as mock_api_response:
+        with patch(
+            "atproto_client.namespaces.async_ns.ComAtprotoRepoNamespace.list_records", new_callable=AsyncMock
+        ) as mock_api_response:
             mock_api_response.side_effect = [AtProtocolError(), mock_response]
             yield {"mock": mock_api_response, "success_data": success_data}
 
-    def test_exceeds_retries(self, list_records_retry_error, params, caplog):
+    async def test_exceeds_retries(self, list_records_retry_error, params, caplog):
         fetcher = uri_fetcher.URIFetcher(DID, "like", Mock())
         with caplog.at_level(logging.ERROR), pytest.raises(RetryError):
-            fetcher._fetch_with_retry(params, 10)
+            await fetcher._fetch_with_retry(params, 10)
         assert "Failed to fetch posts: " in caplog.text
 
-    def test_fail_then_succeed(self, list_records_retry_then_succeed, params, caplog):
+    async def test_fail_then_succeed(self, list_records_retry_then_succeed, params, caplog):
         fetcher = uri_fetcher.URIFetcher(DID, "like", Mock())
         with caplog.at_level(logging.INFO):
-            result = fetcher._fetch_with_retry(params, 10)
+            result = await fetcher._fetch_with_retry(params, 10)
         assert result == list_records_retry_then_succeed["success_data"]
         assert (
             "Attempting to fetch up to 10 posts for DID: did:example:1234, feed_type: app.bsky.feed.like" in caplog.text
