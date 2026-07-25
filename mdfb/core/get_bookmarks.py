@@ -24,7 +24,7 @@ class BookmarkFetcher:
         self.config_manager = ConfigManager(handle)
         self.logger = logger or logging.getLogger(__name__)
         self.db = db
-        self.client: AsyncClient | None = None
+        self._client: AsyncClient | None = None
         self.feed_type = FeedTypes.BOOKMARK
         self.seen_uris = set()
 
@@ -53,9 +53,7 @@ class BookmarkFetcher:
                 present in the database (for the current DID and feed_type)
                 is encountered, whichever comes first. Defaults to False.
             media_types (list[str] | None, optional): List of media types to
-                filter bookmarked posts by (e.g. images, video). Currently
-                unused — accepted but not applied anywhere in the fetch or
-                parse pipeline. Defaults to None.
+                filter bookmarked posts by (e.g. images, video).
 
         Returns:
             list[EnrichedPost]: A list of enriched posts
